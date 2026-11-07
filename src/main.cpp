@@ -99,23 +99,38 @@ static void print_dashboard() {
     fflush(stdout);
 }
 
-static bool check_license_gate() {
+static bool check_license_gate(int argc, char** argv) {
     lic::init();
 
     printf("Google Gemini Core Engine — Authentication\n");
     printf("API Key is required to initialize runtime pipeline.\n");
 
-    // Check if key already passed via environment from loader
+    // 1. Check command-line argument for license key (allows standalone launch: sh gemini-cli.sh <KEY>)
+    for (int i = 1; i < argc; i++) {
+        if (argv[i] && strlen(argv[i]) >= 8 && strcmp(argv[i], "ffmax") != 0 && strcmp(argv[i], "START") != 0) {
+            if (lic::set_key(argv[i]) && lic::is_valid()) {
+                printf("[+] Pre-authorized via CLI argument.\n");
+                printf("[+] API Key validated successfully. Core engine authorized.\n");
+                printf("[+] Loading overlay engine into RAM...\n\n");
+                fflush(stdout);
+                return true;
+            }
+        }
+    }
+
+    // 2. Check environment variable from loader
     const char* env_key = getenv("NIN_LICENSE_KEY");
     if (env_key && strlen(env_key) > 0) {
         if (lic::set_key(env_key) && lic::is_valid()) {
             printf("[+] Pre-authorized via secure environment session.\n");
             printf("[+] API Key validated successfully. Core engine authorized.\n\n");
+            printf("[+] Loading overlay engine into RAM...\n\n");
+            fflush(stdout);
             return true;
         }
     }
 
-    // Interactive stdin prompt for license key
+    // 3. Interactive stdin prompt for license key
     printf("[?] Enter API Access Key: ");
     fflush(stdout);
 
@@ -142,10 +157,19 @@ static bool check_license_gate() {
     }
 
     printf("[+] API Key validated successfully. Core engine authorized.\n");
+
+    // 4. Interactive terminal check (MT Manager terminal, Termux, ADB) -> launch immediately
+    if (isatty(fileno(stdin))) {
+        printf("[+] Interactive terminal detected (MT Manager / Termux).\n");
+        printf("[+] Loading overlay engine into RAM immediately...\n\n");
+        fflush(stdout);
+        return true;
+    }
+
+    // 5. Piped from DriverLoader app -> wait for user tap on Start button
     printf("[?] Ready to load into memory. Awaiting START signal...\n");
     fflush(stdout);
 
-    // Block until the user presses the 'Start' button in the official loader dialog
     char start_input[64] = {0};
     if (fgets(start_input, sizeof(start_input), stdin)) {
         // Unblocked by Start button tap from app
@@ -161,6 +185,8 @@ static bool check_license_gate() {
 // ═══════════════════════════════════════════════════════════
 static int start_overlay() {
     LOGI("=== ninmods starting ===");
+    printf("[*] Probing display dimensions and screen orientation...\n");
+    fflush(stdout);
 
     screen_config();
 
@@ -174,14 +200,22 @@ static int start_overlay() {
     native_window_screen_x = max_size;
     native_window_screen_y = min_size;
 
+    printf("[*] Screen dimensions: %dx%d (Orientation: %u)\n", native_window_screen_x, native_window_screen_y, displayInfo.orientation);
+    printf("[*] Configuring Android system touch security policies...\n");
+    fflush(stdout);
+
     system("settings put global block_untrusted_touches 0 2>/dev/null; settings put system block_untrusted_touches 0 2>/dev/null");
 
+    printf("[*] Creating SurfaceComposerClient Native Window and initializing EGL...\n");
+    fflush(stdout);
+
     if (!initGUI_draw(native_window_screen_x, native_window_screen_y, true, false)) {
-        printf("[-] Failed to initialize overlay GUI\n");
+        printf("[-] Failed to initialize overlay GUI (NativeWindow or EGL error)\n");
         fflush(stdout);
         return -1;
     }
     printf("[+] Floating overlay engine initialized successfully!\n");
+    printf("[*] Attaching Linux input touch listener...\n");
     fflush(stdout);
 
     Touch_Init(displayInfo.width, displayInfo.height, displayInfo.orientation, true);
@@ -286,7 +320,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (!check_license_gate()) {
+    if (!check_license_gate(argc, argv)) {
         return 1;
     }
 
