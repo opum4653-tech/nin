@@ -112,3 +112,20 @@ refer/nin/
 ├── src/main.cpp                            # Entry point & stdin prompt gate
 └── src/protect/license.cpp                 # Online HTTP license verification
 ```
+
+---
+
+## 6. Official GitHub Release & Home Page Policy
+
+1. **GitHub Home Page "Latest" Badge Invariant:**
+   - Every production release (`v1.x.x`) MUST be explicitly pinned as the repository's **"Latest Release"** on the GitHub homepage sidebar (`/releases/latest`).
+   - Old versions (such as `v1.1.4`) must NEVER remain or revert to the "Latest" release on the repository front page.
+2. **Automated Pipeline Enforcement (`.github/workflows/build.yml`):**
+   - The release job only triggers on semantic version tags (`tags: [ 'v*' ]`) or resolves the exact `versionName` from `app/build.gradle.kts`.
+   - The publishing step strictly enforces `makeLatest: true` so GitHub's releases index immediately displays the newest build with the green "Latest" badge.
+3. **Artifact Consistency Guarantee:**
+   - Every official release artifact (`app-release.apk`) must be mirrored simultaneously across:
+     1. GitHub Releases download URL: `https://github.com/mohammadnillislam11-ai/Kernel-Driver/releases/download/<TAG>/app-release.apk`
+     2. Server Backend Mirror: `app_backend/downloads/app-release.apk`
+     3. Bundled Asset Fallback: `DriverLoader/app/src/main/assets/external/gemini-cli.zip`
+
