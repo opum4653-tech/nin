@@ -67,24 +67,29 @@ bool initGUI_draw(uint32_t _screen_x, uint32_t _screen_y, bool log, bool hide) {
 
 bool init_egl(uint32_t _screen_x, uint32_t _screen_y, bool log, bool hide) {
     ::native_window = android::ANativeWindowCreator::Create("AImGui", _screen_x, _screen_y, false, false);
+    if (!::native_window) {
+        printf("[-] Failed to create native surface window (SurfaceComposer returned null)\n");
+        fflush(stdout);
+        return false;
+    }
 
     init_anw_funcs();
     if (g_fn_anw_acquire) g_fn_anw_acquire(native_window);
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (display == EGL_NO_DISPLAY) {
+        printf("[-] eglGetDisplay failed\n");
+        fflush(stdout);
         return false;
-    }
-    if (log) {
     }
     if (eglInitialize(display, 0, 0) != EGL_TRUE) {
+        printf("[-] eglInitialize failed\n");
+        fflush(stdout);
         return false;
-    }
-    if (log) {
     }
     EGLint num_config = 0;
     const EGLint attribList[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
         EGL_BLUE_SIZE, 5,
         EGL_GREEN_SIZE, 6,
         EGL_RED_SIZE, 5,
@@ -94,33 +99,76 @@ bool init_egl(uint32_t _screen_x, uint32_t _screen_y, bool log, bool hide) {
         EGL_NONE
     };
     const EGLint attrib_list[] = {
-    	EGL_CONTEXT_CLIENT_VERSION,
+        EGL_CONTEXT_CLIENT_VERSION,
         3,
         EGL_NONE
     };
-	
-    if (eglChooseConfig(display, attribList, &config, 1, &num_config) != EGL_TRUE) {
-        return false;
+
+    if (eglChooseConfig(display, attribList, &config, 1, &num_config) != EGL_TRUE || num_config <= 0) {
+        // Fallback config without strict depth/stencil
+        const EGLint fallbackAttribList[] = {
+            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+            EGL_NONE
+        };
+        if (eglChooseConfig(display, fallbackAttribList, &config, 1, &num_config) != EGL_TRUE || num_config <= 0) {
+            printf("[-] eglChooseConfig failed\n");
+            fflush(stdout);
+            return false;
+        }
     }
-    EGLint egl_format;
+    EGLint egl_format = 0;
     eglGetConfigAttrib(display, config, EGL_NATIVE_VISUAL_ID, &egl_format);
     if (g_fn_anw_setBuffersGeometry) g_fn_anw_setBuffersGeometry(native_window, 0, 0, egl_format);
     context = eglCreateContext(display, config, EGL_NO_CONTEXT, attrib_list);
     if (context == EGL_NO_CONTEXT) {
-        return false;
+        const EGLint gles2_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+        context = eglCreateContext(display, config, EGL_NO_CONTEXT, gles2_attribs);
+        if (context == EGL_NO_CONTEXT) {
+            printf("[-] eglCreateContext failed\n");
+            fflush(stdout);
+            return false;
+        }
     }
     surface = eglCreateWindowSurface(display, config, native_window, nullptr);
     if (surface == EGL_NO_SURFACE) {
+        EGLint err = eglGetError();
+        printf("[-] eglCreateWindowSurface failed (0x%x)\n", err);
+        fflush(stdout);
         return false;
     }
     if (!eglMakeCurrent(display, surface, surface, context)) {
+        EGLint err = eglGetError();
+        printf("[-] eglMakeCurrent failed (0x%x)\n", err);
+        fflush(stdout);
         return false;
     }
+    printf("[+] Native overlay surface created successfully!\n");
+    fflush(stdout);
     return true;
 }
 
 void screen_config() {
     displayInfo = android::ANativeWindowCreator::GetDisplayInfo();
+    if (displayInfo.width <= 0 || displayInfo.height <= 0) {
+        int w = 0, h = 0;
+        FILE *fp = popen("wm size 2>/dev/null", "r");
+        if (fp) {
+            char buf[128] = {0};
+            while (fgets(buf, sizeof(buf), fp)) {
+                char *p = strstr(buf, "size:");
+                if (p) {
+                    if (sscanf(p + 5, " %dx%d", &w, &h) == 2 && w > 0 && h > 0) {
+                        displayInfo.width = w;
+                        displayInfo.height = h;
+                    }
+                }
+            }
+            pclose(fp);
+        }
+        if (displayInfo.width <= 0) displayInfo.width = 1080;
+        if (displayInfo.height <= 0) displayInfo.height = 2400;
+    }
 }
 bool ImGui_init() {
     if (g_Initialized) {

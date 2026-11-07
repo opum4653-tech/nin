@@ -174,10 +174,15 @@ static int start_overlay() {
     native_window_screen_x = max_size;
     native_window_screen_y = min_size;
 
+    system("settings put global block_untrusted_touches 0 2>/dev/null; settings put system block_untrusted_touches 0 2>/dev/null");
+
     if (!initGUI_draw(native_window_screen_x, native_window_screen_y, true, false)) {
         printf("[-] Failed to initialize overlay GUI\n");
+        fflush(stdout);
         return -1;
     }
+    printf("[+] Floating overlay engine initialized successfully!\n");
+    fflush(stdout);
 
     Touch_Init(displayInfo.width, displayInfo.height, displayInfo.orientation, true);
 

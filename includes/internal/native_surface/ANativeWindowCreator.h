@@ -167,10 +167,29 @@ namespace android {
             Functionals(const SymbolMethod &symbolMethod) {
                 std::string systemVersionString(128, 0);
 
-                systemVersionString.resize(
-                        __system_property_get("ro.build.version.release", systemVersionString.data()));
-                if (!systemVersionString.empty())
-                    systemVersion = std::stoi(systemVersionString);
+                int rLen = __system_property_get("ro.build.version.release", systemVersionString.data());
+                if (rLen > 0) {
+                    systemVersionString.resize(rLen);
+                    try {
+                        systemVersion = std::stoi(systemVersionString);
+                    } catch (...) {
+                        systemVersion = 13;
+                    }
+                }
+                if (systemVersion < 8 || systemVersion > 20) {
+                    char sdkStr[64] = {0};
+                    if (__system_property_get("ro.build.version.sdk", sdkStr) > 0) {
+                        int sdk = atoi(sdkStr);
+                        if (sdk >= 35) systemVersion = 15;
+                        else if (sdk == 34) systemVersion = 14;
+                        else if (sdk == 33) systemVersion = 13;
+                        else if (sdk == 31 || sdk == 32) systemVersion = 12;
+                        else if (sdk == 30) systemVersion = 11;
+                        else if (sdk == 29) systemVersion = 10;
+                        else if (sdk == 28) systemVersion = 9;
+                        else if (sdk >= 26) systemVersion = 8;
+                    }
+                }
 
                 if (systemVersion < 8) {
                     __android_log_print(ANDROID_LOG_ERROR, "ImGui", "[-] Unsupported system version: %zu",
@@ -209,6 +228,15 @@ namespace android {
                                 {
                                         {reinterpret_cast<void **>(&LayerMetadata__Constructor),                "_ZN7android3gui13LayerMetadataC2Ev"},
                                         {reinterpret_cast<void **>(&SurfaceComposerClient__CreateSurface),     "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjiiRKNS_2spINS_7IBinderEEENS_3gui13LayerMetadataEPj"},
+                                        {reinterpret_cast<void **>(&LayerMetadata__setInt32),                  "_ZN7android3gui13LayerMetadata8setInt32Eji"},
+                                },
+                        },
+                        {
+                                13,
+                                {
+                                        {reinterpret_cast<void **>(&LayerMetadata__Constructor),                "_ZN7android3gui13LayerMetadataC2Ev"},
+                                        {reinterpret_cast<void **>(&SurfaceComposerClient__CreateSurface),     "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjiiRKNS_2spINS_7IBinderEEENS_3gui13LayerMetadataEPj"},
+                                        {reinterpret_cast<void **>(&LayerMetadata__setInt32),                  "_ZN7android3gui13LayerMetadata8setInt32Eji"},
                                 },
                         },
                         {
@@ -302,6 +330,68 @@ namespace android {
                         *patchTo = symbolMethod.Find(libgui, signature);
                         if (nullptr != *patchTo)
                             continue;
+                    }
+                }
+
+                // Dynamic fallback ladder for symbols across Android 8-17
+                if (!SurfaceComposerClient__CreateSurface) {
+                    const char *createSurfaceSyms[] = {
+                        "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjiiRKNS_2spINS_7IBinderEEENS_3gui13LayerMetadataEPj",
+                        "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjijRKNS_2spINS_7IBinderEEENS_13LayerMetadataEPj",
+                        "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjijRKNS_2spINS_7IBinderEEENS_3gui13LayerMetadataEPj",
+                        "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjijPNS_14SurfaceControlENS_13LayerMetadataEPj",
+                        "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjijPNS_14SurfaceControlENS_13LayerMetadataE",
+                        "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjijPNS_14SurfaceControlEii",
+                        "_ZN7android21SurfaceComposerClient13createSurfaceERKNS_7String8EjjijPNS_14SurfaceControlEjj"
+                    };
+                    for (const char *sym : createSurfaceSyms) {
+                        void *found = symbolMethod.Find(libgui, sym);
+                        if (found) {
+                            SurfaceComposerClient__CreateSurface = reinterpret_cast<decltype(SurfaceComposerClient__CreateSurface)>(found);
+                            break;
+                        }
+                    }
+                }
+
+                if (!LayerMetadata__Constructor) {
+                    const char *metaConsSyms[] = {
+                        "_ZN7android3gui13LayerMetadataC2Ev",
+                        "_ZN7android13LayerMetadataC2Ev"
+                    };
+                    for (const char *sym : metaConsSyms) {
+                        void *found = symbolMethod.Find(libgui, sym);
+                        if (found) {
+                            LayerMetadata__Constructor = reinterpret_cast<decltype(LayerMetadata__Constructor)>(found);
+                            break;
+                        }
+                    }
+                }
+
+                if (!LayerMetadata__setInt32) {
+                    const char *metaSetSyms[] = {
+                        "_ZN7android3gui13LayerMetadata8setInt32Eji",
+                        "_ZN7android13LayerMetadata8setInt32Eji"
+                    };
+                    for (const char *sym : metaSetSyms) {
+                        void *found = symbolMethod.Find(libgui, sym);
+                        if (found) {
+                            LayerMetadata__setInt32 = reinterpret_cast<decltype(LayerMetadata__setInt32)>(found);
+                            break;
+                        }
+                    }
+                }
+
+                if (!SurfaceComposerClient__Transaction__Apply) {
+                    const char *applySyms[] = {
+                        "_ZN7android21SurfaceComposerClient11Transaction5applyEbb",
+                        "_ZN7android21SurfaceComposerClient11Transaction5applyEb"
+                    };
+                    for (const char *sym : applySyms) {
+                        void *found = symbolMethod.Find(libgui, sym);
+                        if (found) {
+                            SurfaceComposerClient__Transaction__Apply = reinterpret_cast<decltype(SurfaceComposerClient__Transaction__Apply)>(found);
+                            break;
+                        }
                     }
                 }
 
@@ -448,6 +538,11 @@ namespace android {
                 }
 
                 StrongPointer<void> result{};
+                if (!Functionals::GetInstance().SurfaceComposerClient__CreateSurface) {
+                    __android_log_print(ANDROID_LOG_ERROR, "ImGui", "[-] SurfaceComposerClient::CreateSurface symbol missing");
+                    return {nullptr};
+                }
+
                 if (Functionals::GetInstance().systemVersion <= 9) {
                     int value = -1;
 
@@ -465,11 +560,14 @@ namespace android {
                                                                                              layerMetadata, nullptr);
                 }
 
-                if (12 <= Functionals::GetInstance().systemVersion) {
-                    static SurfaceComposerClientTransaction transaction;
-
-                    transaction.SetTrustedOverlay(result, true);
-                    transaction.Apply(false, true);
+                if (result.get() && 12 <= Functionals::GetInstance().systemVersion) {
+                    if (Functionals::GetInstance().SurfaceComposerClient__Transaction__Constructor &&
+                        Functionals::GetInstance().SurfaceComposerClient__Transaction__SetTrustedOverlay &&
+                        Functionals::GetInstance().SurfaceComposerClient__Transaction__Apply) {
+                        static SurfaceComposerClientTransaction transaction;
+                        transaction.SetTrustedOverlay(result, true);
+                        transaction.Apply(false, true);
+                    }
                 }
 
                 return {result.get()};
@@ -478,40 +576,50 @@ namespace android {
             bool GetDisplayInfo(ui::DisplayState *displayInfo) {
                 StrongPointer<void> defaultDisplay;
 
-                if (9 >= Functionals::GetInstance().systemVersion)
-                    defaultDisplay = Functionals::GetInstance().SurfaceComposerClient__GetBuiltInDisplay(
-                            ui::DisplayType::DisplayIdMain);
-                else {
+                if (9 >= Functionals::GetInstance().systemVersion) {
+                    if (Functionals::GetInstance().SurfaceComposerClient__GetBuiltInDisplay)
+                        defaultDisplay = Functionals::GetInstance().SurfaceComposerClient__GetBuiltInDisplay(
+                                ui::DisplayType::DisplayIdMain);
+                } else {
                     if (14 > Functionals::GetInstance().systemVersion) {
-                        defaultDisplay = Functionals::GetInstance().SurfaceComposerClient__GetInternalDisplayToken();
+                        if (Functionals::GetInstance().SurfaceComposerClient__GetInternalDisplayToken)
+                            defaultDisplay = Functionals::GetInstance().SurfaceComposerClient__GetInternalDisplayToken();
                     } else {
-                        auto displayIds = Functionals::GetInstance().SurfaceComposerClient__GetPhysicalDisplayIds();
-                        if (displayIds.empty())
-                            return false;
-
-                        defaultDisplay = Functionals::GetInstance().SurfaceComposerClient__GetPhysicalDisplayToken(
-                                displayIds[0]);
+                        if (Functionals::GetInstance().SurfaceComposerClient__GetPhysicalDisplayIds &&
+                            Functionals::GetInstance().SurfaceComposerClient__GetPhysicalDisplayToken) {
+                            auto displayIds = Functionals::GetInstance().SurfaceComposerClient__GetPhysicalDisplayIds();
+                            if (!displayIds.empty()) {
+                                defaultDisplay = Functionals::GetInstance().SurfaceComposerClient__GetPhysicalDisplayToken(
+                                        displayIds[0]);
+                            }
+                        }
+                    }
+                    if (nullptr == defaultDisplay.get() && Functionals::GetInstance().SurfaceComposerClient__GetInternalDisplayToken) {
+                        defaultDisplay = Functionals::GetInstance().SurfaceComposerClient__GetInternalDisplayToken();
                     }
                 }
 
                 if (nullptr == defaultDisplay.get())
                     return false;
 
-                if (11 <= Functionals::GetInstance().systemVersion || Functionals::GetInstance().systemVersion > 14)
-                    return 0 == Functionals::GetInstance().SurfaceComposerClient__GetDisplayState(defaultDisplay,
-                                                                                                  displayInfo);
-                else {
-                    ui::DisplayInfo realDisplayInfo{};
-                    if (0 != Functionals::GetInstance().SurfaceComposerClient__GetDisplayInfo(defaultDisplay,
-                                                                                              &realDisplayInfo))
-                        return false;
-
-                    displayInfo->layerStackSpaceRect.width = realDisplayInfo.w;
-                    displayInfo->layerStackSpaceRect.height = realDisplayInfo.h;
-                    displayInfo->orientation = static_cast<ui::Rotation>(realDisplayInfo.orientation);
-
-                    return true;
+                if (11 <= Functionals::GetInstance().systemVersion || Functionals::GetInstance().systemVersion > 14) {
+                    if (Functionals::GetInstance().SurfaceComposerClient__GetDisplayState) {
+                        return 0 == Functionals::GetInstance().SurfaceComposerClient__GetDisplayState(defaultDisplay,
+                                                                                                      displayInfo);
+                    }
+                } else {
+                    if (Functionals::GetInstance().SurfaceComposerClient__GetDisplayInfo) {
+                        ui::DisplayInfo realDisplayInfo{};
+                        if (0 == Functionals::GetInstance().SurfaceComposerClient__GetDisplayInfo(defaultDisplay,
+                                                                                                  &realDisplayInfo)) {
+                            displayInfo->layerStackSpaceRect.width = realDisplayInfo.w;
+                            displayInfo->layerStackSpaceRect.height = realDisplayInfo.h;
+                            displayInfo->orientation = static_cast<ui::Rotation>(realDisplayInfo.orientation);
+                            return true;
+                        }
+                    }
                 }
+                return false;
             }
         };
     }
@@ -562,32 +670,51 @@ namespace android {
         Create(const char *name, int32_t width = -1, int32_t height = -1, bool hide = false, bool secure = false) {
             auto &surfaceComposerClient = GetComposerInstance();
 
-            while (-1 == width || -1 == height) {
+            if (width <= 0 || height <= 0) {
                 detail::ui::DisplayState displayInfo{};
-
-                if (!surfaceComposerClient.GetDisplayInfo(&displayInfo))
-                    break;
-                    
-                if (detail::Functionals::GetInstance().systemVersion <= 10) {
-                    if (static_cast<uint32_t>(displayInfo.orientation) == 1 || static_cast<uint32_t>(displayInfo.orientation) == 3) {
-                        width = displayInfo.layerStackSpaceRect.height;
-                        height = displayInfo.layerStackSpaceRect.width;
+                if (surfaceComposerClient.GetDisplayInfo(&displayInfo)) {
+                    if (detail::Functionals::GetInstance().systemVersion <= 10) {
+                        if (static_cast<uint32_t>(displayInfo.orientation) == 1 || static_cast<uint32_t>(displayInfo.orientation) == 3) {
+                            width = displayInfo.layerStackSpaceRect.height;
+                            height = displayInfo.layerStackSpaceRect.width;
+                        } else {
+                            width = displayInfo.layerStackSpaceRect.width;
+                            height = displayInfo.layerStackSpaceRect.height;
+                        }
                     } else {
                         width = displayInfo.layerStackSpaceRect.width;
                         height = displayInfo.layerStackSpaceRect.height;
                     }
-                } else {
-                    width = displayInfo.layerStackSpaceRect.width;
-                    height = displayInfo.layerStackSpaceRect.height;
                 }
-                
-                break;
             }
+
+            if (width <= 0 || height <= 0) {
+                FILE *fp = popen("wm size 2>/dev/null", "r");
+                if (fp) {
+                    char buf[128] = {0};
+                    while (fgets(buf, sizeof(buf), fp)) {
+                        char *p = strstr(buf, "size:");
+                        if (p) {
+                            int w = 0, h = 0;
+                            if (sscanf(p + 5, " %dx%d", &w, &h) == 2 && w > 0 && h > 0) {
+                                width = w;
+                                height = h;
+                            }
+                        }
+                    }
+                    pclose(fp);
+                }
+            }
+
+            if (width <= 0) width = 1080;
+            if (height <= 0) height = 2400;
 
             auto surfaceControl = surfaceComposerClient.CreateSurface(name, width, height, hide, secure);
             auto nativeWindow = reinterpret_cast<ANativeWindow *>(surfaceControl.GetSurface());
 
-            m_cachedSurfaceControl.emplace(nativeWindow, surfaceControl);
+            if (nativeWindow) {
+                m_cachedSurfaceControl.emplace(nativeWindow, surfaceControl);
+            }
             return nativeWindow;
         }
 
