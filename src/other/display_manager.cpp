@@ -43,7 +43,7 @@ SafeDisplayInfo get_info(bool force_refresh) {
     info.height = 0;
     info.orientation = 0;
 
-    // ── Tier 1: Zero-Fork Direct Sysfs Nodes (Fastest, 0.05ms, Zero Fork) ──
+    // Tier 1: Zero-Fork Direct Sysfs Nodes (Fastest, 0.05ms, Zero Fork)
     char buf[128] = {0};
     if (read_file_line("/sys/class/graphics/fb0/virtual_size", buf, sizeof(buf))) {
         int w = 0, h = 0;
@@ -65,7 +65,7 @@ SafeDisplayInfo get_info(bool force_refresh) {
         }
     }
 
-    // ── Tier 2: Linux Framebuffer IOCTL (Zero Fork, Hardware Direct) ──
+    // Tier 2: Linux Framebuffer IOCTL (Zero Fork, Hardware Direct)
     if (info.width <= 0) {
         int fb_fd = open("/dev/graphics/fb0", O_RDONLY);
         if (fb_fd >= 0) {
@@ -80,7 +80,7 @@ SafeDisplayInfo get_info(bool force_refresh) {
         }
     }
 
-    // ── Tier 3: Android System Properties (Zero Fork, In-Memory Bionic Properties) ──
+    // Tier 3: Android System Properties (Zero Fork, In-Memory Bionic Properties)
     if (info.width <= 0) {
         char prop_w[PROP_VALUE_MAX] = {0};
         char prop_h[PROP_VALUE_MAX] = {0};
@@ -95,7 +95,7 @@ SafeDisplayInfo get_info(bool force_refresh) {
         }
     }
 
-    // ── Tier 4: Single-Shot Guarded Fallback via wm size (Bounded Execution) ──
+    // Tier 4: Single-Shot Guarded Fallback via wm size (Bounded Execution)
     if (info.width <= 0 || info.height <= 0) {
         FILE *fp = popen("PATH=/system/bin:/bin wm size 2>/dev/null", "r");
         if (fp) {
@@ -114,13 +114,13 @@ SafeDisplayInfo get_info(bool force_refresh) {
         }
     }
 
-    // ── Absolute Safety Fallback ──
+    // Absolute Safety Fallback
     if (info.width <= 0 || info.height <= 0) {
         info.width = 1080;
         info.height = 2400;
     }
 
-    // ── Orientation Detection (Zero Fork) ──
+    // Orientation Detection (Zero Fork)
     char rotProp[PROP_VALUE_MAX] = {0};
     if (__system_property_get("ro.sf.hwrotation", rotProp) > 0) {
         int deg = atoi(rotProp);
