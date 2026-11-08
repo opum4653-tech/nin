@@ -269,7 +269,7 @@ namespace ui::menu {
 
             if (ImGui::Begin("##NIN_MINI", nullptr, pillFlags)) {
                 ImVec2 avail = ImGui::GetContentRegionAvail();
-                ImGui::InvisibleButton("##ReOpenPill", avail);
+                bool clicked = ImGui::InvisibleButton("##ReOpenPill", avail);
 
                 static ImVec2 s_touch_start = ImVec2(0, 0);
                 static bool s_is_dragging = false;
@@ -301,10 +301,11 @@ namespace ui::menu {
                     }
                 }
 
-                if (ImGui::IsItemDeactivated()) {
-                    if (!s_has_dragged) {
-                        menu_open = true; // Clean single tap: open menu
-                    }
+                if (clicked || (ImGui::IsItemDeactivated() && !s_has_dragged)) {
+                    menu_open = true; // Clean single tap: open menu
+                    s_is_dragging = false;
+                    s_has_dragged = false;
+                } else if (ImGui::IsItemDeactivated()) {
                     s_is_dragging = false;
                     s_has_dragged = false;
                 }

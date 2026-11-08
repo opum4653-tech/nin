@@ -15,4 +15,7 @@ namespace display_safe {
 
     // Explicitly update orientation if device rotates
     void update_orientation(uint32_t rot);
+
+    // Queries current dynamic SurfaceOrientation from Android display subsystem
+    uint32_t probe_orientation();
 }

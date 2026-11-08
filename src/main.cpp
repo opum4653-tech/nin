@@ -181,6 +181,9 @@ static int start_overlay() {
     fflush(stdout);
 
     screen_config();
+    if (displayInfo.orientation == 0) {
+        displayInfo.orientation = 1; // Default to landscape for gaming overlay
+    }
 
     int max_size = (displayInfo.height > displayInfo.width)
                    ? displayInfo.height : displayInfo.width;
@@ -217,6 +220,7 @@ static int start_overlay() {
     // without blocking for game launch.
     std::thread attach_worker([]() {
         while (main_thread_flag) {
+            display_safe::probe_orientation();
             proc::pid = get_pid();
             if (proc::pid > 0) {
                 proc::lib = get_lib();
