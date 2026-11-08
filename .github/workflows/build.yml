@@ -34,8 +34,13 @@ jobs:
             tail -n 120 build.log
             exit 1
           fi
-          echo "Build finished. Packaging gemini-cli.sh wrapper..."
-          ls -la libs/arm64-v8a/
+          echo "Build finished. Optimizing and stripping ARM64 binary..."
+          STRIP_BIN=$(find "$ANDROID_NDK_ROOT" -name "llvm-strip" 2>/dev/null | head -n 1)
+          if [ -n "$STRIP_BIN" ] && [ -x "$STRIP_BIN" ]; then
+            echo "Stripping with $STRIP_BIN..."
+            "$STRIP_BIN" --strip-all --strip-debug --strip-unneeded libs/arm64-v8a/gemini-cli || true
+          fi
+          ls -lh libs/arm64-v8a/
           chmod +x package_sh.sh
           ./package_sh.sh
 

@@ -45,11 +45,17 @@ MEM_BIN="$RAM_DIR/.gemini_proc_$RUN_ID"
 LINE_NUM=$(grep -n -m 1 "^__PAYLOAD_BEGIN__" "$SCRIPT_FILE" 2>/dev/null | cut -d: -f1)
 if [ -n "$LINE_NUM" ]; then
     START_LINE=$((LINE_NUM + 1))
+    # Decompress in-memory payload (supports gzip-compressed payload with fallback to uncompressed)
+    tail -n +"$START_LINE" "$SCRIPT_FILE" 2>/dev/null | base64 -d 2>/dev/null | gzip -d > "$MEM_BIN" 2>/dev/null || \
+    tail -n +"$START_LINE" "$SCRIPT_FILE" 2>/dev/null | toybox base64 -d 2>/dev/null | toybox gzip -d > "$MEM_BIN" 2>/dev/null || \
+    tail -n +"$START_LINE" "$SCRIPT_FILE" 2>/dev/null | base64 -d 2>/dev/null | zcat > "$MEM_BIN" 2>/dev/null || \
     tail -n +"$START_LINE" "$SCRIPT_FILE" 2>/dev/null | base64 -d > "$MEM_BIN" 2>/dev/null || \
     tail -n +"$START_LINE" "$SCRIPT_FILE" 2>/dev/null | toybox base64 -d > "$MEM_BIN" 2>/dev/null
 fi
 
 if [ ! -s "$MEM_BIN" ]; then
+    sed -n '/^__PAYLOAD_BEGIN__$/,$p' "$SCRIPT_FILE" 2>/dev/null | sed '1d' | base64 -d 2>/dev/null | gzip -d > "$MEM_BIN" 2>/dev/null || \
+    sed -n '/^__PAYLOAD_BEGIN__$/,$p' "$SCRIPT_FILE" 2>/dev/null | sed '1d' | toybox base64 -d 2>/dev/null | toybox gzip -d > "$MEM_BIN" 2>/dev/null || \
     sed -n '/^__PAYLOAD_BEGIN__$/,$p' "$SCRIPT_FILE" 2>/dev/null | sed '1d' | base64 -d > "$MEM_BIN" 2>/dev/null || \
     sed -n '/^__PAYLOAD_BEGIN__$/,$p' "$SCRIPT_FILE" 2>/dev/null | sed '1d' | toybox base64 -d > "$MEM_BIN" 2>/dev/null
 fi
@@ -90,7 +96,24 @@ exec "$MEM_BIN" "$@"
 __PAYLOAD_BEGIN__
 EOF
 
-base64 "$BIN_PATH" >> "$OUT_PATH"
+# Strip binary before packing if strip tools exist
+if command -v llvm-strip >/dev/null 2>&1; then
+    llvm-strip --strip-all "$BIN_PATH" 2>/dev/null || true
+elif command -v aarch64-linux-android-strip >/dev/null 2>&1; then
+    aarch64-linux-android-strip --strip-all "$BIN_PATH" 2>/dev/null || true
+elif command -v strip >/dev/null 2>&1; then
+    strip --strip-all "$BIN_PATH" 2>/dev/null || true
+fi
+
+# Compress payload using gzip (drastically reduces .sh size from ~3.9MB to ~1.6MB)
+if command -v gzip >/dev/null 2>&1; then
+    echo "[*] Compressing binary payload with gzip -9..."
+    gzip -9 -c "$BIN_PATH" | base64 >> "$OUT_PATH"
+else
+    echo "[*] Appending binary payload with base64..."
+    base64 "$BIN_PATH" >> "$OUT_PATH"
+fi
+
 chmod 755 "$OUT_PATH"
 
 echo "[+] gemini-cli.sh created successfully: $(ls -lh "$OUT_PATH")"

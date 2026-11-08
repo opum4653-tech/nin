@@ -659,41 +659,10 @@ namespace android {
             auto &surfaceComposerClient = GetComposerInstance();
 
             if (width <= 0 || height <= 0) {
-                detail::ui::DisplayState displayInfo{};
-                if (surfaceComposerClient.GetDisplayInfo(&displayInfo)) {
-                    if (detail::Functionals::GetInstance().systemVersion <= 10) {
-                        if (static_cast<uint32_t>(displayInfo.orientation) == 1 || static_cast<uint32_t>(displayInfo.orientation) == 3) {
-                            width = displayInfo.layerStackSpaceRect.height;
-                            height = displayInfo.layerStackSpaceRect.width;
-                        } else {
-                            width = displayInfo.layerStackSpaceRect.width;
-                            height = displayInfo.layerStackSpaceRect.height;
-                        }
-                    } else {
-                        width = displayInfo.layerStackSpaceRect.width;
-                        height = displayInfo.layerStackSpaceRect.height;
-                    }
-                }
+                auto safe = display_safe::get_info();
+                width = safe.width;
+                height = safe.height;
             }
-
-            if (width <= 0 || height <= 0) {
-                FILE *fp = popen("wm size 2>/dev/null", "r");
-                if (fp) {
-                    char buf[128] = {0};
-                    while (fgets(buf, sizeof(buf), fp)) {
-                        char *p = strstr(buf, "size:");
-                        if (p) {
-                            int w = 0, h = 0;
-                            if (sscanf(p + 5, " %dx%d", &w, &h) == 2 && w > 0 && h > 0) {
-                                width = w;
-                                height = h;
-                            }
-                        }
-                    }
-                    pclose(fp);
-                }
-            }
-
             if (width <= 0) width = 1080;
             if (height <= 0) height = 2400;
 
