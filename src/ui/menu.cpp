@@ -260,7 +260,7 @@ namespace ui::menu {
             ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.882f, 0.000f, 0.596f, 0.90f));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 22.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.5f);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 
             ImGuiWindowFlags pillFlags = ImGuiWindowFlags_NoTitleBar |
                                          ImGuiWindowFlags_NoResize |
@@ -269,14 +269,28 @@ namespace ui::menu {
 
             if (ImGui::Begin("##NIN_MINI", nullptr, pillFlags)) {
                 ImVec2 avail = ImGui::GetContentRegionAvail();
-                bool clicked = ImGui::InvisibleButton("##ReOpenPill", avail);
+                ImGui::InvisibleButton("##ReOpenPill", avail);
 
-                static bool pill_was_dragged = false;
+                static ImVec2 s_touch_start = ImVec2(0, 0);
+                static bool s_is_dragging = false;
+                static bool s_has_dragged = false;
 
-                // Dragging logic with instant delta update and boundary clamping
+                if (ImGui::IsItemActivated()) {
+                    s_touch_start = io.MousePos;
+                    s_is_dragging = false;
+                    s_has_dragged = false;
+                }
+
                 if (ImGui::IsItemActive()) {
-                    if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 4.0f)) {
-                        pill_was_dragged = true;
+                    float dx = io.MousePos.x - s_touch_start.x;
+                    float dy = io.MousePos.y - s_touch_start.y;
+                    // Mobile touchscreen drag threshold: 24 pixels
+                    if (!s_is_dragging && (dx * dx + dy * dy) > (24.0f * 24.0f)) {
+                        s_is_dragging = true;
+                        s_has_dragged = true;
+                    }
+
+                    if (s_is_dragging) {
                         s_pill_pos.x += io.MouseDelta.x;
                         s_pill_pos.y += io.MouseDelta.y;
 
@@ -287,15 +301,12 @@ namespace ui::menu {
                     }
                 }
 
-                // Strict separation: Drag release NEVER triggers Click (eliminates double-trigger)
-                if (io.MouseReleased[0]) {
-                    if (pill_was_dragged) {
-                        pill_was_dragged = false; // Drag completed; suppress menu opening
-                    } else if (clicked) {
-                        menu_open = true; // Clean single tap; open menu
+                if (ImGui::IsItemDeactivated()) {
+                    if (!s_has_dragged) {
+                        menu_open = true; // Clean single tap: open menu
                     }
-                } else if (!io.MouseDown[0] && pill_was_dragged) {
-                    pill_was_dragged = false;
+                    s_is_dragging = false;
+                    s_has_dragged = false;
                 }
 
                 ImDrawList* dl = ImGui::GetWindowDrawList();
