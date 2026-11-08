@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include "other/display_manager.hpp"
 
 #define ResolveMethod(ClassName, MethodName, Handle, MethodSignature)                                                                    \
     ClassName##__##MethodName = reinterpret_cast<decltype(ClassName##__##MethodName)>(symbolMethod.Find(Handle, MethodSignature));       \
@@ -395,8 +396,9 @@ namespace android {
                     }
                 }
 
-                symbolMethod.Close(libutils);
-                symbolMethod.Close(libgui);
+                // Keep handles alive so resolved function pointers remain valid in RAM
+                // symbolMethod.Close(libutils);
+                // symbolMethod.Close(libgui);
             }
             
             static const Functionals &
@@ -522,8 +524,12 @@ namespace android {
             char data[1024];
 
             SurfaceComposerClient() {
-                Functionals::GetInstance().SurfaceComposerClient__Constructor(data);
-                Functionals::GetInstance().RefBase__IncStrong(data, this);
+                if (Functionals::GetInstance().SurfaceComposerClient__Constructor) {
+                    Functionals::GetInstance().SurfaceComposerClient__Constructor(data);
+                }
+                if (Functionals::GetInstance().RefBase__IncStrong) {
+                    Functionals::GetInstance().RefBase__IncStrong(data, this);
+                }
             }
 
             SurfaceControl CreateSurface(const char *name, int32_t width, int32_t height, bool hide, bool secure) {
@@ -640,30 +646,12 @@ namespace android {
         }
 
         static DisplayInfo GetDisplayInfo() {
-            auto &surfaceComposerClient = GetComposerInstance();
-            detail::ui::DisplayState displayInfo{};
-
-            if (!surfaceComposerClient.GetDisplayInfo(&displayInfo))
-                return {};
-                
-            if (detail::Functionals::GetInstance().systemVersion <= 10) {
-                DisplayInfo mDisplayInfo{};
-                if (static_cast<uint32_t>(displayInfo.orientation) == 1 || static_cast<uint32_t>(displayInfo.orientation) == 3) {
-                    mDisplayInfo.width = displayInfo.layerStackSpaceRect.height;
-                    mDisplayInfo.height = displayInfo.layerStackSpaceRect.width;
-                } else {
-                    mDisplayInfo.width = displayInfo.layerStackSpaceRect.width;
-                    mDisplayInfo.height = displayInfo.layerStackSpaceRect.height;
-                }
-                mDisplayInfo.orientation = static_cast<uint32_t>(displayInfo.orientation);
-                return mDisplayInfo;
-            }
-            
-            return DisplayInfo{
-                    .orientation = static_cast<uint32_t>(displayInfo.orientation),
-                    .width = displayInfo.layerStackSpaceRect.width,
-                    .height = displayInfo.layerStackSpaceRect.height,
-            };
+            auto safe = display_safe::get_info();
+            DisplayInfo d{};
+            d.width = safe.width;
+            d.height = safe.height;
+            d.orientation = safe.orientation;
+            return d;
         }
 
         static ANativeWindow *

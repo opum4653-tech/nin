@@ -3,6 +3,8 @@
 #include "ui/menu.hpp"
 #include "protect/license.hpp"
 #include "other/memory.hpp"
+#include "other/crash_handler.hpp"
+#include "other/display_manager.hpp"
 #include "game/data.hpp"
 #include "game/Offsets.h"
 #include "func/esp.hpp"
@@ -292,22 +294,18 @@ static void mask_process_name(int argc, char** argv, const char* fake_name) {
     // 1. Update /proc/self/comm via prctl (max 16 chars)
     prctl(PR_SET_NAME, fake_name, 0, 0, 0);
 
-    // 2. Overwrite /proc/self/cmdline via argv[0] memory space
-    // Determine contiguous length of original command line arguments
-    size_t total_len = 0;
-    for (int i = 0; i < argc; ++i) {
-        if (argv[i]) {
-            total_len += strlen(argv[i]) + 1;
-        }
-    }
-
-    if (total_len > 0) {
-        memset(argv[0], 0, total_len);
-        strncpy(argv[0], fake_name, total_len - 1);
+    // 2. Safe argv[0] in-place rename without touching succeeding memory buffers
+    size_t len = strlen(argv[0]);
+    if (len > 0) {
+        memset(argv[0], 0, len);
+        strncpy(argv[0], fake_name, len);
     }
 }
 
 int main(int argc, char** argv) {
+    // 0. Install crash interception handler
+    crash_guard::install();
+
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
