@@ -150,25 +150,8 @@ bool init_egl(uint32_t _screen_x, uint32_t _screen_y, bool log, bool hide) {
 
 void screen_config() {
     displayInfo = android::ANativeWindowCreator::GetDisplayInfo();
-    if (displayInfo.width <= 0 || displayInfo.height <= 0) {
-        int w = 0, h = 0;
-        FILE *fp = popen("wm size 2>/dev/null", "r");
-        if (fp) {
-            char buf[128] = {0};
-            while (fgets(buf, sizeof(buf), fp)) {
-                char *p = strstr(buf, "size:");
-                if (p) {
-                    if (sscanf(p + 5, " %dx%d", &w, &h) == 2 && w > 0 && h > 0) {
-                        displayInfo.width = w;
-                        displayInfo.height = h;
-                    }
-                }
-            }
-            pclose(fp);
-        }
-        if (displayInfo.width <= 0) displayInfo.width = 1080;
-        if (displayInfo.height <= 0) displayInfo.height = 2400;
-    }
+    if (displayInfo.width <= 0) displayInfo.width = 1080;
+    if (displayInfo.height <= 0) displayInfo.height = 2400;
 }
 bool ImGui_init() {
     if (g_Initialized) {
