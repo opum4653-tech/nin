@@ -205,58 +205,45 @@ static void *TypeA(void *arg) {
             if (ie.code == SYN_REPORT) {
                 ImGuiIO &io = ImGui::GetIO();
                 if (Finger[i][latest].isDown) {
-                    float x = Finger[i][latest].x, y = Finger[i][latest].y;
-                    float xt = x / scale_x;
-                    float yt = y / scale_y;
-                    /* 
-                    LOGD("orien %d orig x%.1f y%.1f\n", orientation, x, y);
-                    LOGD("xt %.1f yt %.1f\n", xt, yt);
-                    */
-                    if (other_touch) {
-                        switch (orientation) {
-                            case 1:
-                                x = xt;
-                                y = yt;
-                                break;
-                            case 2:
-                                y = yt;
-                                x = screenHeight - xt;
-                                break;
-                            case 3:
-                                x = screenHeight - xt;
-                                y = screenWidth - yt;
-                                break;
-                            default:
-                                y = xt;
-                                x = screenHeight - yt;
-                                break;
-                        }
-                    } else {
-                        switch (orientation) {
-                            case 1:
-                                x = yt;
-                                y = screenHeight - xt;
-                                break;
-                            case 2:
-                                x = screenHeight - xt;
-                                y = screenWidth - yt;
-                                break;
-                            case 3:
-                                y = xt;
-                                x = screenWidth - yt;
-                                break;
-                            default:
-                                x = xt;
-                                y = yt;
-                                break;
-                        }
+                    float raw_x = (float)Finger[i][latest].x;
+                    float raw_y = (float)Finger[i][latest].y;
+                    float max_x = (touchMaxX > 0) ? (float)touchMaxX : ((screenWidth > 0) ? screenWidth : 1080.0f);
+                    float max_y = (touchMaxY > 0) ? (float)touchMaxY : ((screenHeight > 0) ? screenHeight : 2400.0f);
+                    float nx = raw_x / max_x;
+                    float ny = raw_y / max_y;
+                    if (nx < 0.0f) nx = 0.0f; if (nx > 1.0f) nx = 1.0f;
+                    if (ny < 0.0f) ny = 0.0f; if (ny > 1.0f) ny = 1.0f;
+
+                    float dispW = (io.DisplaySize.x > 0.0f) ? io.DisplaySize.x : ((screenWidth > screenHeight) ? screenWidth : screenHeight);
+                    float dispH = (io.DisplaySize.y > 0.0f) ? io.DisplaySize.y : ((screenWidth < screenHeight) ? screenWidth : screenHeight);
+
+                    float x = 0.0f;
+                    float y = 0.0f;
+
+                    switch (orientation) {
+                        case 1: // Landscape (Rotated 90 deg CCW for Gaming)
+                            x = ny * dispW;
+                            y = (1.0f - nx) * dispH;
+                            break;
+                        case 2: // Reverse Portrait (180 deg)
+                            x = (1.0f - nx) * dispW;
+                            y = (1.0f - ny) * dispH;
+                            break;
+                        case 3: // Reverse Landscape (270 deg CCW)
+                            x = (1.0f - ny) * dispW;
+                            y = nx * dispH;
+                            break;
+                        case 0: // Portrait
+                        default:
+                            x = nx * dispW;
+                            y = ny * dispH;
+                            break;
                     }
-                    io.MousePos = {x, y};
-                    // LOGD("final %d %.1f %.1f\n", other_touch, x, y);
+
+                    io.MousePos = ImVec2(x, y);
                     io.MouseDown[0] = true;
                 } else {
                     io.MouseDown[0] = false;
-                    //  LOGD("抬起");
                 }
                 if (!Touch_readOnly) {
                     Upload();
