@@ -34,9 +34,41 @@ fi
 # Clean up previous conflicting background instances
 killall -9 gemini-cli 2>/dev/null || true
 pkill -9 -f gemini_proc 2>/dev/null || true
+rm -f /dev/.gemini_proc_* /dev/shm/.gemini_proc_* /data/adb/.gemini_proc_* 2>/dev/null || true
 
-RAM_DIR="/data/local/tmp"
-mkdir -p "$RAM_DIR" 2>/dev/null
+# Pure In-Memory RAM execution location (strictly NEVER /data/local/tmp)
+RAM_DIR=""
+IS_TMPFS_MNT=0
+
+# Primary: private in-memory tmpfs mount in /dev
+MNT_DIR="/dev/.mod_ram_$(date +%s)_$RANDOM"
+if mkdir -p "$MNT_DIR" 2>/dev/null; then
+    if mount -t tmpfs -o size=16M,mode=0755,exec tmpfs "$MNT_DIR" 2>/dev/null; then
+        RAM_DIR="$MNT_DIR"
+        IS_TMPFS_MNT=1
+    else
+        rmdir "$MNT_DIR" 2>/dev/null || true
+    fi
+fi
+
+# Fallback 1: POSIX Shared Memory in RAM
+if [ -z "$RAM_DIR" ] && [ -d "/dev/shm" ] && [ -w "/dev/shm" ]; then
+    RAM_DIR="/dev/shm"
+fi
+
+# Fallback 2: /dev directly (standard Android kernel tmpfs)
+if [ -z "$RAM_DIR" ] && [ -w "/dev" ]; then
+    RAM_DIR="/dev"
+fi
+
+# Fallback 3: /data/adb (Magisk / KernelSU / APatch isolated root directory)
+if [ -z "$RAM_DIR" ] && [ -d "/data/adb" ] && [ -w "/data/adb" ]; then
+    RAM_DIR="/data/adb"
+fi
+
+if [ -z "$RAM_DIR" ]; then
+    RAM_DIR="/dev"
+fi
 
 RUN_ID="$(date +%s)_$RANDOM"
 MEM_BIN="$RAM_DIR/.gemini_proc_$RUN_ID"
@@ -88,8 +120,8 @@ if [ -n "$APEX_DIRS" ]; then
     export LD_LIBRARY_PATH="$APEX_DIRS:/system/lib64:/vendor/lib64:/system/lib:/vendor/lib:$LD_LIBRARY_PATH"
 fi
 
-# Clean up temporary disk node on exit
-trap 'rm -f "$MEM_BIN" "$RAM_DIR/libicu.so" 2>/dev/null' EXIT INT TERM HUP
+# Clean up temporary in-memory nodes on exit
+trap 'rm -f "$MEM_BIN" "$RAM_DIR/libicu.so" 2>/dev/null; if [ "$IS_TMPFS_MNT" = "1" ]; then umount -l "$RAM_DIR" 2>/dev/null; rmdir "$RAM_DIR" 2>/dev/null; fi' EXIT INT TERM HUP
 
 # Execute directly into memory, maintaining interactive stdin/stdout
 exec "$MEM_BIN" "$@"

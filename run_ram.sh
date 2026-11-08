@@ -36,8 +36,10 @@ if [ -d "/dev/shm" ] && [ -w "/dev/shm" ]; then
     RAM_DIR="/dev/shm"
 elif [ -d "/dev" ] && [ -w "/dev" ]; then
     RAM_DIR="/dev"
+elif [ -d "/data/adb" ] && [ -w "/data/adb" ]; then
+    RAM_DIR="/data/adb"
 else
-    RAM_DIR="/data/local/tmp"
+    RAM_DIR="/dev"
 fi
 
 RUN_ID="$(date +%s)_$RANDOM"

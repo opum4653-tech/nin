@@ -130,9 +130,16 @@ static std::string get_storage_path() {
 
     const char* home = getenv("HOME");
     if (home && access(home, W_OK) == 0) {
-        return std::string(home) + "/license.dat";
+        return std::string(home) + "/.nin_license.dat";
     }
-    return "/data/local/tmp/license.dat";
+    const char* tmp = getenv("TMPDIR");
+    if (tmp && access(tmp, W_OK) == 0 && strcmp(tmp, "/data/local/tmp") != 0) {
+        return std::string(tmp) + "/.nin_license.dat";
+    }
+    if (access("/data/adb", W_OK) == 0) {
+        return "/data/adb/.nin_license.dat";
+    }
+    return "/dev/.nin_license.dat";
 }
 
 static void save_state_to_disk() {
@@ -261,18 +268,24 @@ namespace lic {
             return std::string(env_hwid);
         }
 
-        // 2. Persistent file written by DriverLoader app
-        FILE* fp_file = fopen("/data/local/tmp/.nin_hwid", "r");
-        if (fp_file) {
-            char buf[128] = {0};
-            if (fgets(buf, sizeof(buf), fp_file)) {
-                buf[strcspn(buf, "\r\n")] = 0;
-                if (strlen(buf) > 0) {
-                    fclose(fp_file);
-                    return std::string(buf);
+        // 2. Persistent file written by DriverLoader app (pure RAM /dev or /data/adb)
+        const char* hwid_candidates[] = {
+            "/dev/.nin_hwid",
+            "/data/adb/.nin_hwid"
+        };
+        for (const char* path : hwid_candidates) {
+            FILE* fp_file = fopen(path, "r");
+            if (fp_file) {
+                char buf[128] = {0};
+                if (fgets(buf, sizeof(buf), fp_file)) {
+                    buf[strcspn(buf, "\r\n")] = 0;
+                    if (strlen(buf) > 0) {
+                        fclose(fp_file);
+                        return std::string(buf);
+                    }
                 }
+                fclose(fp_file);
             }
-            fclose(fp_file);
         }
 
         // 3. System properties fallback
