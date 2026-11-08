@@ -3,9 +3,7 @@
 #include <string>
 #include <ctime>
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // CLIENT-SIDE LICENSE KEY SYSTEM & DATE-WINDOW ENFORCEMENT
-// ═══════════════════════════════════════════════════════════════════════════════
 namespace lic {
 
     // Returns true only if start_date <= now < expiry_date AND key matches

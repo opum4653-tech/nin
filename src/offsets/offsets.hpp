@@ -2,18 +2,16 @@
 
 #include <cstdint>
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // CENTRALIZED OFFSETS MODULE — LONG-TERM MAINTAINABILITY FOUNDATION
 // When Free Fire updates (e.g. OB56, OB57), ONLY UPDATE THIS FILE!
-// ═══════════════════════════════════════════════════════════════════════════════
 
 namespace Offsets {
 
-    // ── Target Game Build Metadata ──
+// Target Game Build Metadata
     constexpr const char* GameVersion   = "OB55 / 1.132.1";
     constexpr const char* TargetPackage = "com.dts.freefireth";
 
-    // ── Base Chain (GameFacade → BaseGame → Match) ──
+// Base Chain (GameFacade → BaseGame → Match)
     namespace Base {
         constexpr uintptr_t GameFacade           = 0xA72E4E0;
         constexpr uintptr_t GameFacade_P2        = 0xB8;
@@ -27,7 +25,7 @@ namespace Offsets {
         constexpr uintptr_t Match_MetaManager    = 0xB8;
     }
 
-    // ── Il2Cpp Mono Dictionary Traversal ──
+// Il2Cpp Mono Dictionary Traversal
     namespace Dict {
         constexpr uintptr_t Entries              = 0x18;
         constexpr uintptr_t Count                = 0x20;
@@ -36,7 +34,7 @@ namespace Offsets {
         constexpr uintptr_t EntryValue           = 0x10;
     }
 
-    // ── Player Entity Fields ──
+// Player Entity Fields
     namespace Player {
         constexpr uintptr_t Rotation             = 0x614;   // Vector3 (Pitch, Yaw, Roll)
         constexpr uintptr_t HeadTF               = 0x6A0;   // ITransformNode
@@ -60,13 +58,13 @@ namespace Offsets {
         constexpr uintptr_t DeathInfo            = 0x24A8;  // DeathInfo
     }
 
-    // ── Weapon Data Fields ──
+// Weapon Data Fields
     namespace Weapon {
         constexpr uintptr_t Data                 = 0x80;
         constexpr uintptr_t Recoil               = 0x18;
     }
 
-    // ── Avatar Visibility ──
+// Avatar Visibility
     namespace Avatar {
         constexpr uintptr_t Uma                  = 0x138;
         constexpr uintptr_t Uma_Visible          = 0x101;
@@ -76,20 +74,20 @@ namespace Offsets {
         constexpr uintptr_t UmaData_Skip         = 0x81;    // Alias for teammate filter
     }
 
-    // ── Camera Chain ──
+// Camera Chain
     namespace Camera {
         constexpr uintptr_t Follow               = 0x28;
         constexpr uintptr_t IntPtr               = 0x10;
         constexpr uintptr_t Matrix               = 0x100;
     }
 
-    // ── Aim Information ──
+// Aim Information
     namespace Aim {
         constexpr uintptr_t Direction            = 0x40;    // Vector3
         constexpr uintptr_t StartPosition        = 0x4C;    // Vector3
     }
 
-    // ── Skeleton Bones (ITransformNode offsets inside Player) ──
+// Skeleton Bones (ITransformNode offsets inside Player)
     namespace Bone {
         constexpr uintptr_t Head                 = 0x6A0;
         constexpr uintptr_t Hip                  = 0x6A8;
@@ -107,7 +105,7 @@ namespace Offsets {
         constexpr uintptr_t LeftHand             = 0x720;
     }
 
-    // ── Loot & Drop Items ──
+// Loot & Drop Items
     namespace Loot {
         constexpr uintptr_t DropObjects          = 0x18;
         constexpr uintptr_t MetaObjects          = 0x10;
@@ -122,7 +120,7 @@ namespace Offsets {
         constexpr uintptr_t DropObject_Landed    = 0x9C;
     }
 
-    // ── Backwards-Compatible Flat Aliases ──
+// Backwards-Compatible Flat Aliases
     constexpr uintptr_t GameFacade               = Base::GameFacade;
     constexpr uintptr_t GameFacade_P2            = Base::GameFacade_P2;
     constexpr uintptr_t BaseGame_Match           = Base::BaseGame_Match;

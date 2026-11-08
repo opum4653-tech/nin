@@ -26,9 +26,7 @@
 #define LOG_TAG "gemini"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
 
-// ═══════════════════════════════════════════════════════════
 // ANSI COLOR
-// ═══════════════════════════════════════════════════════════
 #define RST        "\033[0m"
 #define BOLD       "\033[1m"
 #define FG_BRED    "\033[91m"
@@ -41,9 +39,7 @@
 extern float global_anim_time;
 std::atomic<bool> main_thread_flag{true};
 
-// ═══════════════════════════════════════════════════════════
 // TARGET GAME
-// ═══════════════════════════════════════════════════════════
 enum TargetGame {
     GAME_FF     = 0,
     GAME_FF_MAX = 1
@@ -63,9 +59,7 @@ static const char* GetTargetPackage() {
     return (g_targetGame == GAME_FF) ? kFFPackage : kFFMaxPackage;
 }
 
-// ═══════════════════════════════════════════════════════════
 // WAIT FOR GAME (DAEMON TASK SYNC)
-// ═══════════════════════════════════════════════════════════
 static int wait_for_game() {
     printf("[*] Synchronizing runtime context with target subsystem...\n");
     fflush(stdout);
@@ -80,9 +74,7 @@ static int wait_for_game() {
     return proc::pid;
 }
 
-// ═══════════════════════════════════════════════════════════
 // GEMINI CLI DASHBOARD & INITIALIZATION GATE
-// ═══════════════════════════════════════════════════════════
 static void print_dashboard() {
     time_t exp = lic::expiry_date();
     struct tm* tm_info = gmtime(&exp);
@@ -182,9 +174,7 @@ static bool check_license_gate(int argc, char** argv) {
     return true;
 }
 
-// ═══════════════════════════════════════════════════════════
 // START OVERLAY
-// ═══════════════════════════════════════════════════════════
 static int start_overlay() {
     LOGI("=== ninmods starting ===");
     printf("[*] Probing display dimensions and screen orientation...\n");
@@ -222,7 +212,7 @@ static int start_overlay() {
 
     Touch_Init(displayInfo.width, displayInfo.height, displayInfo.orientation, true);
 
-    // ─── START BACKGROUND ATTACH THREAD ───
+// START BACKGROUND ATTACH THREAD
     // Allows overlay GUI & floating logo to appear immediately upon launching,
     // without blocking for game launch.
     std::thread attach_worker([]() {
@@ -259,9 +249,7 @@ static int start_overlay() {
     printf("[+] Gemini CLI runtime daemon active. Processing stream.\n\n");
     fflush(stdout);
 
-    // ═══════════════════════════════════════════════════════
     //  MAIN LOOP — RENDER LOOP (MINIMAL LOGGING)
-    // ═══════════════════════════════════════════════════════
     int dbgCounter = 0;
     while (main_thread_flag) {
         global_anim_time += 0.016f;
@@ -270,7 +258,7 @@ static int start_overlay() {
         drawEnd();
         usleep(16000);
 
-        // ─── PERIODIC DAEMON HEARTBEAT (EVERY ~5 SECONDS) ───
+// PERIODIC DAEMON HEARTBEAT (EVERY ~5 SECONDS)
         if (++dbgCounter >= 300) {
             dbgCounter = 0;
             bool inM = data::inMatch.load(std::memory_order_relaxed);
@@ -285,9 +273,7 @@ static int start_overlay() {
     return 0;
 }
 
-// ═══════════════════════════════════════════════════════════
 // MAIN
-// ═══════════════════════════════════════════════════════════
 static void mask_process_name(int argc, char** argv, const char* fake_name) {
     if (!argv || !argv[0] || !fake_name) return;
 

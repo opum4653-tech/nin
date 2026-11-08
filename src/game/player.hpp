@@ -5,12 +5,12 @@
 struct PlayerData {
     uint64_t addr;
 
-    // ── Box ──
+// Box
     Vector3  Head;
     Vector3  Toe;
     Vector3  headWorld;
 
-    // ── Meta ──
+// Meta
     bool     isVisible;
     bool     isBot;
     float    distance;

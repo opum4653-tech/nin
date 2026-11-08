@@ -14,9 +14,7 @@ extern float g_sw, g_sh;
 
 namespace func::esp {
 
-    // ═══════════════════════════════════════════════════════
     // HELPER COLOR
-    // ═══════════════════════════════════════════════════════
     inline ImU32 toU32(const ImVec4& c, float alphaMul = 1.f) {
         return IM_COL32(
             (int)(c.x * 255.f),
@@ -49,9 +47,7 @@ namespace func::esp {
         return IM_COL32((int)(80 + 100 * t), (int)(180 + 60 * t), 255, 255);
     }
 
-    // ═══════════════════════════════════════════════════════
     // FORMAT
-    // ═══════════════════════════════════════════════════════
     inline bool ok(const Vector3& v) { return v.x > 0 && v.y > 0; }
 
     inline void fmtDist(float d, char* out, size_t n) {
@@ -66,22 +62,18 @@ namespace func::esp {
         snprintf(out, n, "%.11s.", src);
     }
 
-    // ═══════════════════════════════════════════════════════
     // CONSTANTS
-    // ═══════════════════════════════════════════════════════
     static constexpr ImU32 C_SHADOW = IM_COL32(0, 0, 0, 180);
     static constexpr ImU32 C_BORDER = IM_COL32(255, 255, 255, 40);
 
-    // ── FONT SIZE (kecil, seimbang) ──
+// FONT SIZE (kecil, seimbang)
     static constexpr float ESP_FONT_SIZE = 12.f;
     static constexpr float PANEL_ROW_H   = ESP_FONT_SIZE + 5.f;   // 17px
 
-    // ── PANEL OFFSET DARI KEPALA (jauh di atas) ──
+// PANEL OFFSET DARI KEPALA (jauh di atas)
     static constexpr float PANEL_TOP_OFFSET = 35.f;
 
-    // ═══════════════════════════════════════════════════════
     // PLAYER BOX — compute bounding box from Head and Toe
-    // ═══════════════════════════════════════════════════════
     struct PlayerBox {
         ImVec2 tl, br;
         bool   valid;
@@ -108,9 +100,7 @@ namespace func::esp {
         return pb;
     }
 
-    // ═══════════════════════════════════════════════════════
     // STYLE 09: TOP CLEAN NAME & DISTANCE (NO OVERLAP WITH TRACER)
-    // ═══════════════════════════════════════════════════════
     inline void drawTopInfo(ImDrawList* dl, const PlayerData& p,
                             float cx, float top_y) {
         if (!cfg::esp::name && !cfg::esp::distance) return;
@@ -167,9 +157,7 @@ namespace func::esp {
         }
     }
 
-    // ═══════════════════════════════════════════════════════
     // STYLE 09: VERTICAL (LOMBA) HEALTH BAR ON RIGHT SIDE
-    // ═══════════════════════════════════════════════════════
     inline void drawSideHealthBar(ImDrawList* dl, const PlayerData& p, ImVec2 tl, ImVec2 br) {
         if (!cfg::esp::health && !cfg::esp::armor) return;
 
@@ -211,9 +199,7 @@ namespace func::esp {
         }
     }
 
-    // ═══════════════════════════════════════════════════════
     // BOX
-    // ═══════════════════════════════════════════════════════
     inline void drawBox(ImDrawList* dl, ImVec2 tl, ImVec2 br, ImU32 col, int type) {
         float thick = cfg::esp::box_thickness;
         float round = cfg::esp::box_rounding;
@@ -251,9 +237,7 @@ namespace func::esp {
     }
 
 
-    // ═══════════════════════════════════════════════════════
     // FIRING
-    // ═══════════════════════════════════════════════════════
     inline void drawFiring(ImDrawList* dl, const PlayerData& p, float cx, float ty) {
         if (!p.isFiring) return;
         float t = ImGui::GetTime();
@@ -267,9 +251,7 @@ namespace func::esp {
         dl->AddCircle(pos, r + 1.f, IM_COL32(255, 255, 255, 210), 16, 1.2f);
     }
 
-    // ═══════════════════════════════════════════════════════
     // WEAPON PILL
-    // ═══════════════════════════════════════════════════════
     inline void drawWeapon(ImDrawList* dl, const PlayerData& p, ImVec2 foot) {
         if (p.weaponType < 0) return;
         static const char* kNames[] = {
@@ -300,9 +282,7 @@ namespace func::esp {
             {px + padX, py + padY}, wCol, wn);
     }
 
-    // ═══════════════════════════════════════════════════════
     // LOOT
-    // ═══════════════════════════════════════════════════════
     inline const char* lootCat(uint32_t resID) {
         uint32_t c = (resID >> 24) & 0xFF;
         switch (c) {
@@ -370,9 +350,7 @@ namespace func::esp {
         }
     }
 
-    // ═══════════════════════════════════════════════════════
     // CROSSHAIR
-    // ═══════════════════════════════════════════════════════
     inline void drawCrosshair(ImDrawList* dl) {
         float cx = g_sw * 0.5f, cy = g_sh * 0.5f;
         float gap = 6.f, len = 10.f;
@@ -385,9 +363,7 @@ namespace func::esp {
         dl->AddCircleFilled({cx, cy}, 1.5f, c);
     }
 
-    // ═══════════════════════════════════════════════════════
     // MAIN DRAW
-    // ═══════════════════════════════════════════════════════
     inline void draw() {
         if (!data::inMatch.load()) return;
 

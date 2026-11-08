@@ -20,13 +20,13 @@ This document defines the architecture, workflow, and operational contracts of t
 
 - **Source Location:** `C:\Users\Sajala\Documents\mods\refer\nin`
 - **Build Pipeline:** Automated via `.github/workflows/build.yml` on GitHub Actions using Android NDK `r25c`.
-- **Output Artifact Format:** A standalone self-extracting shell script named **`gemini-cli.sh`**.
-  - Wraps the ARM64 `gemini-cli` binary inside an executable shell script with Base64 encoding.
-  - When executed, decodes the binary directly into RAM (`/dev/shm` or `/dev` or `/data/local/tmp`).
-  - Spawns the process into memory and immediately unlinks the temporary disk file (fileless execution).
+- **Output Artifact Format:** Pure native ARM64 executable binary named **`gemini-cli`** packaged inside **`gemini-cli.zip`**.
+  - Direct execution via Android app root bridge (`su -c`) without intermediate `.sh` shell decoding or base64 overhead.
+  - Deploys directly into the private, sandboxed app storage directory (`context.filesDir/external_mods/gemini-cli`).
+  - Fastest startup time with immediate process lifecycle tracking.
 - **Server Deployment Directory:**
-  - File path on server: `downloads/external/gemini-cli.sh`
-  - Download URL: `https://ninmods.smmtor.com/downloads/external/gemini-cli.sh`
+  - File path on server: `downloads/external/gemini-cli.zip`
+  - Download URL: `https://ninmods.smmtor.com/downloads/external/gemini-cli.zip`
 
 ---
 

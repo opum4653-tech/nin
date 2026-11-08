@@ -3,7 +3,7 @@
 
 namespace cfg {
 namespace esp {
-    // ── Master ──
+// Master
     inline bool  box              = false;
     inline int   box_type         = 1; // 1 = Full Chaturbhuj (Rectangular) Box
     inline bool  name             = false;
@@ -18,7 +18,7 @@ namespace esp {
     inline bool  firing_ind       = false;
     inline bool  loot             = false;
 
-    // ── Setting ──
+// Setting
     inline float max_range        = 250.f;
     inline float loot_range       = 150.f;
     inline float box_rounding     = 3.f;
@@ -26,7 +26,7 @@ namespace esp {
     inline float tracer_thickness = 1.2f;
     inline float bracket_frac     = 0.28f;
 
-    // ── Warna ──
+// Warna
     inline ImVec4 box_col         = ImVec4(0.0f, 0.90f, 1.0f, 1.0f);
     inline ImVec4 box_visible     = ImVec4(0.30f, 1.0f, 0.55f, 1.0f);
     inline ImVec4 name_col        = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);

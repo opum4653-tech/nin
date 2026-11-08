@@ -376,10 +376,8 @@ struct Quaternion {
         return (v * Rad2Deg) + 180.f;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
     // Slerp — ditambahkan (tidak ada di versi asli MIT Eric Phillips)
     // Interpolasi spherical antara a → b dengan parameter t ∈ [0, 1].
-    // ═══════════════════════════════════════════════════════════════════════
     static inline Quaternion Slerp(const Quaternion& a, const Quaternion& b, float t) {
         if (t <= 0.f) return a;
         if (t >= 1.f) return b;
@@ -414,7 +412,6 @@ struct Quaternion {
             a.w*s0 + bb.w*s1
         ).normalized();
     }
-    // ═══════════════════════════════════════════════════════════════════════
 
     inline Vector3 euler() const { return ToEuler(*this); }
     inline Quaternion normalized() const { return Normalize(*this); }

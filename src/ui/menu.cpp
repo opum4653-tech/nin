@@ -28,9 +28,7 @@ static float ui_opacity = 1.0f;
 static std::atomic<bool> menu_open{false};
 static std::atomic<bool> g_should_exit{false};
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // DESIGN 08: ELECTRIC ORCHID GLASS — COLOR DEFINITIONS
-// ═══════════════════════════════════════════════════════════════════════════════
 namespace theme_orchid {
     constexpr ImU32 ColPrimary       = IM_COL32(225, 0, 152, 255);       // Electric Orchid #E10098
     constexpr ImU32 ColPrimaryLight  = IM_COL32(255, 90, 205, 255);      // Soft Orchid Glow #FF5ACD
@@ -39,9 +37,7 @@ namespace theme_orchid {
     constexpr ImU32 ColWhite         = IM_COL32(252, 248, 255, 255);     // Clean White
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // VECTOR ICONS (PRECISE GEOMETRY & CLEAN ARCS)
-// ═══════════════════════════════════════════════════════════════════════════════
 enum EIconType {
     ICON_EYE = 0,
     ICON_CROSSHAIR,
@@ -144,10 +140,8 @@ static bool DrawSidebarIconButton(const char* str_id, EIconType icon_type, bool 
     return pressed;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // NATIVE TOUCH-SCROLL HANDLER (100% PUBLIC IMGUI API — ZERO INTERNAL DEPENDENCY)
 // Axis-locked gesture discrimination eliminates slider conflicts completely.
-// ═══════════════════════════════════════════════════════════════════════════════
 static void handleTouchScroll() {
     ImGuiIO& io = ImGui::GetIO();
     enum GestureState { GESTURE_IDLE, GESTURE_HORIZONTAL, GESTURE_VERTICAL };
@@ -215,10 +209,8 @@ namespace ui::menu {
         if (realW <= 0) realW = 1920.0f;
         if (realH <= 0) realH = 1080.0f;
 
-        // ══════════════════════════════════════════════════════════════════════
         // SCREEN ROTATION & RESOLUTION TRACKER
         // Tracks orientation flips globally across both Pill and Main Menu
-        // ══════════════════════════════════════════════════════════════════════
         static int last_orientation = -1;
         static float last_screen_w = 0.0f;
         static float last_screen_h = 0.0f;
@@ -237,9 +229,7 @@ namespace ui::menu {
             pill_needs_reposition = true;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
         // FLOATING RE-OPEN PILL (SHOWN ONLY WHEN MENU IS MINIMIZED)
-        // ══════════════════════════════════════════════════════════════════════
         if (!menu_open) {
             const float pillW = 136.0f;
             const float pillH = 44.0f;
@@ -322,9 +312,7 @@ namespace ui::menu {
             return;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
         // MAIN MENU: DESIGN 08 (ELECTRIC ORCHID GLASS)
-        // ══════════════════════════════════════════════════════════════════════
         // Expanded horizontal width so labels have generous breathing space
         const float winW = ImMin(820.0f, realW * 0.94f);
         const float winH = ImMin(460.0f, realH * 0.94f);
@@ -387,9 +375,7 @@ namespace ui::menu {
             ImVec2 winPos = ImGui::GetWindowPos();
             ImVec2 winSize = ImGui::GetWindowSize();
 
-            // ──────────────────────────────────────────────────────────────────
             // 1. TOP HEADER (44px)
-            // ──────────────────────────────────────────────────────────────────
             const float headerH = 44.0f;
             ImVec2 headerP0 = winPos;
             ImVec2 headerP1 = ImVec2(winPos.x + winSize.x, winPos.y + headerH);
@@ -430,9 +416,7 @@ namespace ui::menu {
             dl->AddLine(ImVec2(closeCenter.x - xRadius, closeCenter.y - xRadius), ImVec2(closeCenter.x + xRadius, closeCenter.y + xRadius), closeCol, 2.2f);
             dl->AddLine(ImVec2(closeCenter.x - xRadius, closeCenter.y + xRadius), ImVec2(closeCenter.x + xRadius, closeCenter.y - xRadius), closeCol, 2.2f);
 
-            // ──────────────────────────────────────────────────────────────────
             // 2. MAIN BODY: LEFT SIDEBAR (ICON-ONLY) + RIGHT CONTENT AREA
-            // ──────────────────────────────────────────────────────────────────
             const float bodyY = headerH;
             const float bodyH = winSize.y - headerH;
             const float sidebarW = 76.0f;
@@ -477,9 +461,7 @@ namespace ui::menu {
             ImGui::PopStyleVar();
             ImGui::PopStyleColor();
 
-            // ──────────────────────────────────────────────────────────────────
             // 3. MAIN CONTENT AREA (EXPANDED DUAL-COLUMN GEOMETRY)
-            // ──────────────────────────────────────────────────────────────────
             const float contentX = sidebarW + 14.0f;
             const float contentY = headerH + 10.0f;
             const float contentW = winSize.x - contentX - 14.0f;
@@ -493,11 +475,9 @@ namespace ui::menu {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14, 10));
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 10));
 
-            // ══════════════════════════════════════════════════════════════════
             // TAB 0: ESP VISUALS (DUAL COLUMN: BAM PASE + DAN PASE)
-            // ══════════════════════════════════════════════════════════════════
             if (activeTab == 0) {
-                // ── LEFT COLUMN CARD (BAM PASE OPTION): ESP VISUALS ──
+// LEFT COLUMN CARD (BAM PASE OPTION): ESP VISUALS
                 ImGui::SetCursorPos(ImVec2(contentX, contentY));
                 if (ImGui::BeginChild("##ColLeftESP", ImVec2(colW, contentH), true)) {
                     ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.80f, 1.0f), "ESP VISUALS");
@@ -520,7 +500,7 @@ namespace ui::menu {
                 }
                 ImGui::EndChild();
 
-                // ── RIGHT COLUMN CARD (DAN PASE OPTION): FILTERS & CONTROLS ──
+// RIGHT COLUMN CARD (DAN PASE OPTION): FILTERS & CONTROLS
                 ImGui::SetCursorPos(ImVec2(contentX + colW + colGap, contentY));
                 if (ImGui::BeginChild("##ColRightESP", ImVec2(colW, contentH), true)) {
                     ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.80f, 1.0f), "SETTINGS & FILTERS");
@@ -558,9 +538,7 @@ namespace ui::menu {
                 }
                 ImGui::EndChild();
             }
-            // ══════════════════════════════════════════════════════════════════
             // TAB 1: COMBAT & AIM ASSIST (DUAL COLUMN)
-            // ══════════════════════════════════════════════════════════════════
             else if (activeTab == 1) {
                 // Left Column: Aim Controls & Target Selectors
                 ImGui::SetCursorPos(ImVec2(contentX, contentY));
@@ -659,9 +637,7 @@ namespace ui::menu {
                 }
                 ImGui::EndChild();
             }
-            // ══════════════════════════════════════════════════════════════════
             // TAB 2: SETTINGS & SYSTEM STATUS (DUAL COLUMN)
-            // ══════════════════════════════════════════════════════════════════
             else if (activeTab == 2) {
                 // Left Column: UI Customization
                 ImGui::SetCursorPos(ImVec2(contentX, contentY));
@@ -724,9 +700,7 @@ namespace ui::menu {
         ImGui::PopStyleVar(7);
         ImGui::PopStyleColor(20);
 
-        // ══════════════════════════════════════════════════════════════════════
         // DEFERRED SAFE SHUTDOWN (CALLED AFTER ALL IMGUI FRAMES UNWOUND)
-        // ══════════════════════════════════════════════════════════════════════
         if (g_should_exit) {
             main_thread_flag = false;
             Touch_Close();

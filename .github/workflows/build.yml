@@ -41,8 +41,9 @@ jobs:
             "$STRIP_BIN" --strip-all --strip-debug --strip-unneeded libs/arm64-v8a/gemini-cli || true
           fi
           ls -lh libs/arm64-v8a/
-          chmod +x package_sh.sh
-          ./package_sh.sh
+          echo "Packaging pure native gemini-cli into gemini-cli.zip..."
+          (cd libs/arm64-v8a && zip -9 gemini-cli.zip gemini-cli)
+          ls -lh libs/arm64-v8a/
 
       - name: Upload Build Log on Failure
         if: failure()
@@ -55,5 +56,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gemini-cli.zip
-          path: libs/arm64-v8a/gemini-cli.sh
+          path: libs/arm64-v8a/gemini-cli.zip
           if-no-files-found: error

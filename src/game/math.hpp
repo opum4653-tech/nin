@@ -59,7 +59,7 @@ inline Vector3 GetNodePosition(uint64_t nodeTransform) {
     return GetPosition(transformValue);
 }
 
-// ── Bone helpers ──
+// Bone helpers
 inline uint64_t GetPlayerHeadTF(uint64_t player) {
     return rpm<uint64_t>(player + Offsets::Bone_Head);
 }

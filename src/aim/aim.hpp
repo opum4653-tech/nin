@@ -16,7 +16,6 @@
 extern float g_sw;
 extern float g_sh;
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // SAFE BODY-TO-HEAD RECOIL DRAG ENGINE (NATURAL GAMEPLAY — ZERO CAMERA JUMPING)
 // Features:
 // 1. Natural Gameplay: Camera rotation is 100% untouched. Finger aiming is free.
@@ -24,7 +23,6 @@ extern float g_sh;
 // 3. Grace-Period Burst Lock: Prevents lock resets between rapid bullet intervals.
 // 4. Progressive Body-to-Head Drag: Bullets climb naturally from chest to head.
 // 5. Strict FOV Circle: Strictly respects FOV limit; never locks outside.
-// ═══════════════════════════════════════════════════════════════════════════════
 
 namespace aimbot {
 
@@ -90,7 +88,7 @@ namespace aimbot {
             return;
         }
 
-        // ─── FIRING & SCOPING STATE ───
+// FIRING & SCOPING STATE
         bool isFiring = rpm<bool>(localPlayer + Offsets::Player::IsFiring);
         float fovOffset = rpm<float>(localPlayer + Offsets::Player::FOVOffset);
         bool isScoping = (fovOffset < -0.01f || fovOffset > 0.01f);
@@ -138,11 +136,9 @@ namespace aimbot {
         const PlayerData* bestEnemy = nullptr;
         Vector3 bestScreenPos = Vector3::Zero();
 
-        // ══════════════════════════════════════════════════════════════════════
         // 1. STRICT TARGET HYSTERESIS (STICK TO CURRENT TARGET)
         // If Target 1 is locked, NEVER switch to Target 2 as long as Target 1 is in view!
         // This completely eliminates crosshair flickering and screen shaking!
-        // ══════════════════════════════════════════════════════════════════════
         if (s_lockedTargetAddr != 0) {
             for (const auto& enemy : enemies) {
                 if (enemy.addr == s_lockedTargetAddr) {
@@ -168,10 +164,8 @@ namespace aimbot {
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════════
         // 2. NEW TARGET ACQUISITION (ONLY WHEN NO TARGET IS LOCKED)
         // Find single closest enemy inside FOV circle
-        // ══════════════════════════════════════════════════════════════════════
         if (!bestEnemy) {
             float bestScore = 9999999.0f;
             for (const auto& enemy : enemies) {
@@ -227,9 +221,7 @@ namespace aimbot {
         g_currentTarget.screenPos = bestScreenPos;
         g_currentTarget.headWorld = bestEnemy->headWorld;
 
-        // ══════════════════════════════════════════════════════════════════════
         // 3D BULLET ALIGNMENT WITH PROGRESSIVE DRAG & SMOOTH INTERPOLATION
-        // ══════════════════════════════════════════════════════════════════════
         uint64_t aimInfo = rpm<uint64_t>(localPlayer + Offsets::Player::AimInfo);
         if (is_valid_ptr(aimInfo)) {
             uint64_t dirAddr = aimInfo + Offsets::Aim::Direction;
@@ -294,10 +286,8 @@ namespace aimbot {
         // Screen will never snap, jump, or pull between multiple enemies!
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
     // FOV CIRCLE & ACTIVE LOCK VISUALIZER
     // Scaled dynamically by cfg::aim::fov_radius
-    // ══════════════════════════════════════════════════════════════════════════
     inline void render_fov(ImDrawList* dl) {
         if (!cfg::aim::enable || !cfg::aim::show_fov) return;
         if (!data::inMatch.load(std::memory_order_relaxed)) return;

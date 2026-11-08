@@ -27,9 +27,7 @@ namespace data {
     static std::unordered_map<uint64_t, int>  g_visCounter;
     static std::unordered_map<uint64_t, bool> g_visStable;
 
-    // ========================================================================
     // HP
-    // ========================================================================
     static int readHP(uint64_t p) {
         auto pool  = rpm<uint64_t>(p + Offsets::Player_HP);
         if (!pool) return 0;
@@ -40,9 +38,7 @@ namespace data {
         return rpm<int>(elem + Offsets::HP_Value);
     }
 
-    // ========================================================================
     // NAME
-    // ========================================================================
     static int readName(uint64_t p, char* buf, size_t buflen) {
         buf[0] = 0;
         auto sp = rpm<uint64_t>(p + Offsets::Player_Name);
@@ -62,9 +58,7 @@ namespace data {
         return n;
     }
 
-    // ========================================================================
     // WEAPON TYPE
-    // ========================================================================
     static int readWeapon(uint64_t p) {
         auto w = rpm<uint64_t>(p + Offsets::Player_Weapon);
         if (!w) return -1;
@@ -73,9 +67,7 @@ namespace data {
         return rpm<int>(wd + 0x64);
     }
 
-    // ========================================================================
     // BONE → SCREEN
-    // ========================================================================
     static Vector3 boneScreen(uint64_t player, uintptr_t offset) {
         uint64_t node = rpm<uint64_t>(player + offset);
         if (!node) return Vector3::Zero();
@@ -84,9 +76,7 @@ namespace data {
         return WorldToScreenPoint(viewMatrix, w);
     }
 
-    // ========================================================================
     // SCAN LOOT
-    // ========================================================================
     static void scanLoot(uint64_t BaseGame, const Vector3& localPos) {
         std::vector<LootItem> tmp;
 
@@ -135,9 +125,7 @@ namespace data {
         loots = std::move(tmp);
     }
 
-    // ========================================================================
     // UPDATE
-    // ========================================================================
     void update() {
         if (proc::pid <= 0 || proc::lib == 0) return;
 
@@ -190,7 +178,7 @@ namespace data {
             return;
         }
 
-        // ── Camera chain ──
+// Camera chain
         uint64_t Follow = 0, Cam = 0, IntPtr = 0;
 
         Follow = rpm<uint64_t>(localPlayer + Offsets::Player_Camera);
@@ -212,12 +200,12 @@ namespace data {
 
         viewMatrix = rpm<matrix>(IntPtr + Offsets::Camera_Matrix);
 
-        // ── Local position ──
+// Local position
         Vector3 localPos = Vector3::Zero();
         uint64_t headNode = rpm<uint64_t>(localPlayer + Offsets::Bone_Head);
         if (headNode) localPos = GetNodePosition(headNode);
 
-        // ── LOOT ──
+// LOOT
         if (cfg::esp::loot) {
             scanLoot(BaseGame, localPos);
         } else {
@@ -225,7 +213,7 @@ namespace data {
             loots.clear();
         }
 
-        // ── PLAYERS ──
+// PLAYERS
         uint64_t dictAddr = rpm<uint64_t>(BaseGame + Offsets::Match_PlayerDict);
         if (!dictAddr) {
             std::lock_guard<std::mutex> lk(players_mutex);
@@ -341,9 +329,7 @@ namespace data {
         }
     }
 
-    // ========================================================================
     // THREAD
-    // ========================================================================
     static void loop() {
         while (g_run.load(std::memory_order_relaxed)) {
             update();

@@ -16,9 +16,7 @@
 #define LIC_LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LIC_LOG_TAG, __VA_ARGS__)
 #define LIC_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LIC_LOG_TAG, __VA_ARGS__)
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // XOR-OBFUSCATED CONSTANTS & RUNTIME DECODERS
-// ═══════════════════════════════════════════════════════════════════════════════
 
 // start_date = 1793750400 (2026-11-04 00:00:00 UTC) = 0x6AEA3300ULL
 static constexpr unsigned char K_START_BYTES[8] = { 0x5D, 0x6E, 0xB7, 0x37, 0x5D, 0x5D, 0x5D, 0x5D };
@@ -64,9 +62,7 @@ static std::string normalize(const std::string& input) {
     return out;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // INTERNAL STATE
-// ═══════════════════════════════════════════════════════════════════════════════
 static std::mutex s_lic_mutex;
 static std::string s_stored_key = "";
 static time_t s_last_seen_ts = 0;
@@ -80,9 +76,7 @@ static float s_toast_timer = 0.0f;
 static JavaVM* s_jvm = nullptr;
 static jobject s_activity = nullptr;
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // PERSISTENT STORAGE
-// ═══════════════════════════════════════════════════════════════════════════════
 static std::string get_storage_path() {
     if (s_jvm && s_activity) {
         JNIEnv* env = nullptr;
@@ -181,9 +175,7 @@ static void evaluate_state(time_t now) {
     s_is_valid = false;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // PUBLIC API IMPLEMENTATION
-// ═══════════════════════════════════════════════════════════════════════════════
 namespace lic {
 
     time_t start_date() {

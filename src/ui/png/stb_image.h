@@ -208,7 +208,6 @@ RECENT REVISION HISTORY:
 // larger than that, and it still fits in the overall size limit, you can
 // #define STBI_MAX_DIMENSIONS on your own to be something larger.
 //
-// ===========================================================================
 //
 // UNICODE:
 //
@@ -218,7 +217,6 @@ RECENT REVISION HISTORY:
 //   and pass utf8-encoded filenames. Call stbi_convert_wchar_to_utf8 to convert
 //   Windows wchar_t filenames to utf8.
 //
-// ===========================================================================
 //
 // Philosophy
 //
@@ -241,7 +239,6 @@ RECENT REVISION HISTORY:
 //    - Small source code footprint ("easy to maintain")
 //    - No dependencies ("ease of use")
 //
-// ===========================================================================
 //
 // I/O callbacks
 //
@@ -253,7 +250,6 @@ RECENT REVISION HISTORY:
 // The three functions you must define are "read" (reads some bytes of data),
 // "skip" (skips some bytes of data), "eof" (reports if the stream is at the end).
 //
-// ===========================================================================
 //
 // SIMD support
 //
@@ -274,7 +270,6 @@ RECENT REVISION HISTORY:
 // you have issues compiling it, you can disable it entirely by
 // defining STBI_NO_SIMD.
 //
-// ===========================================================================
 //
 // HDR image support   (disable by defining STBI_NO_HDR)
 //
@@ -309,7 +304,6 @@ RECENT REVISION HISTORY:
 //
 //     stbi_is_hdr(char *filename);
 //
-// ===========================================================================
 //
 // iPhone PNG support:
 //
@@ -323,7 +317,6 @@ RECENT REVISION HISTORY:
 // says there's premultiplied data (currently only happens in iPhone images,
 // and only if iPhone convert-to-rgb processing is on).
 //
-// ===========================================================================
 //
 // ADDITIONAL CONFIGURATION
 //
