@@ -6,44 +6,60 @@ This document defines the architecture, workflow, and operational contracts of t
 
 ## 1. Mod Architecture & Scope
 
-- **Active Mod Type:** Strictly **External Mod**.
-- **Kernel Mods:** Currently **NONE**.
+- **Supported Mod Engines:**
+  1. **NINMODS Kernel Mod** (`ninmods-kernel`): Native kernel-level overlay engine interacting with kernel drivers.
+  2. **NINMODS External Mod** (`gemini-cli`): Standalone native memory overlay engine.
+- **Execution Architecture:**
+  - Both mod engines compile directly into pure native ARM64 ELF binaries.
+  - Zero intermediate shell wrappers (`.sh` files eliminated).
+  - Executed directly via superuser bridge (`su -c`) with standard process lifecycle management.
 - **Dashboard Representation:**
-  - The Dashboard features **NO Kernel Mods Card** or dummy kernel items.
-  - The Dashboard contains exclusively:
+  - The Dashboard features:
     1. **Digital License Expiry Countdown Clock** (`LicenseClockCard`).
-    2. **External Mod Card** (`ExternalModsCard`).
+    2. **Kernel Mod Card** (`KernelModsCard`) styled in Cyber Purple (`#AD47FA`).
+    3. **External Mod Card** (`ExternalModsCard`) styled in Cyan Blue (`#00F2FE`).
 
 ---
 
-## 2. External Mod Specifications
+## 2. Dedicated Server Download Specifications (Strict Subfolders)
 
-- **Source Location:** `C:\Users\Sajala\Documents\mods\refer\nin`
-- **Build Pipeline:** Automated via `.github/workflows/build.yml` on GitHub Actions using Android NDK `r25c`.
-- **Output Artifact Format:** Pure native ARM64 executable binary named **`gemini-cli`** packaged inside **`gemini-cli.zip`**.
-  - Direct execution via Android app root bridge (`su -c`) without intermediate `.sh` shell decoding or base64 overhead.
-  - Deploys directly into the private, sandboxed app storage directory (`context.filesDir/external_mods/gemini-cli`).
-  - Fastest startup time with immediate process lifecycle tracking.
-- **Server Deployment Directory:**
-  - File path on server: `downloads/external/gemini-cli.zip`
-  - Download URL: `https://ninmods.smmtor.com/downloads/external/gemini-cli.zip`
+All mod packages and drivers MUST be downloaded exclusively from the backend server (`https://ninmods.smmtor.com`).
+
+### 2.1 Production Download URL Matrix
+- **External Mod:** `https://ninmods.smmtor.com/downloads/external/gemini-cli.zip`
+  - Local path: `app_backend/downloads/external/gemini-cli.zip`
+  - Content: `gemini-cli` (pure native ARM64 ELF executable)
+- **Kernel Mod:** `https://ninmods.smmtor.com/downloads/kernel/ninmods-kernel.zip`
+  - Local path: `app_backend/downloads/kernel/ninmods-kernel.zip`
+  - Content: `ninmods-kernel` (pure native ARM64 ELF executable)
+- **Kernel Drivers:** `https://ninmods.smmtor.com/downloads/Kernel_Drivers.zip`
+  - Local path: `app_backend/downloads/Kernel_Drivers.zip`
+  - Content: Compiled `.ko` kernel modules and driver assets
+- **App Release APK:** `https://ninmods.smmtor.com/downloads/app-release.apk`
+  - Local path: `app_backend/downloads/app-release.apk`
+  - Latest production release APK (e.g. v1.4.9)
+
+### 2.2 Prohibited Actions (Never Deviate)
+- **NO GITHUB DOWNLOAD LINKS:** Never use GitHub releases or raw GitHub URLs for mod/driver downloads in the app.
+- **NO BUNDLED ASSETS IN APK:** Mod packages must never be bundled into the APK `assets/` folder. All mods are downloaded on demand.
+- **NO FLAT ROOT DOWNLOAD PATHS:** Never store or request mod packages at the root of downloads (e.g. `/downloads/gemini-cli.zip` or `/downloads/ninmods-kernel.zip` are strictly FORBIDDEN). Subdirectories (`external/` and `kernel/`) are mandatory.
 
 ---
 
 ## 3. Dashboard Mod Interaction & Dialog Workflow
 
 ### Step 1: Download Confirmation (When NOT installed)
-1. User taps the mod card featuring the official software logo.
-2. The app inspects local storage: `context.filesDir/external_mods/gemini-cli.sh`.
-3. If the file does not exist:
+1. User taps the mod card or the CloudDownload icon button on Dashboard.
+2. The app inspects local storage (`context.filesDir/external_mods/gemini-cli`).
+3. If missing:
    - An **Official Material 3 Download Confirmation Dialog** (`ApatchConfirmDownloadDialog`) appears.
    - Text asks the user if they wish to download the external mod package.
    - Contains **"Cancel"** and **"Download"** buttons.
 4. If user taps **"Cancel"**, the dialog dismisses and no network activity occurs.
 5. If user taps **"Download"**:
    - The animated download dialog (`ApatchDownloadDialog`) appears with a real-time progress bar.
-   - The app streams `downloads/external/gemini-cli.sh` from the backend server to local storage.
-   - Grants executable permissions: `chmod 755 gemini-cli.sh`.
+   - The app streams `downloads/external/gemini-cli.zip` from the backend server to local storage.
+   - Grants executable permissions: `chmod 755 gemini-cli`.
    - Card status changes to `READY`.
 
 ### Step 2: Single-Tap Launch & Background Prompt
