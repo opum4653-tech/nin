@@ -177,6 +177,15 @@ static void *TypeA(void *arg) {
         size_t count = size_t(readSize) / sizeof(input_event);
         for (size_t j = 0; j < count; j++) {
             input_event &ie = inputEvent[j];
+            if (ie.type == EV_KEY) {
+                if (ie.code == BTN_TOUCH) {
+                    Finger[i][latest].isDown = (ie.value != 0);
+                    if (ie.value != 0) {
+                        Finger[i][latest].id = (i * 2 + 1) * maxF + latest;
+                    }
+                    continue;
+                }
+            }
             if (ie.type == EV_ABS) {
                 if (ie.code == ABS_MT_SLOT) {
                     if (ie.value >= 0 && ie.value < maxF) {
@@ -193,12 +202,12 @@ static void *TypeA(void *arg) {
                     }
                     continue;
                 }
-                if (ie.code == ABS_MT_POSITION_X) {
+                if (ie.code == ABS_MT_POSITION_X || ie.code == ABS_X) {
                     Finger[i][latest].id = (i * 2 + 1) * maxF + latest;
                     Finger[i][latest].x = ie.value;
                     continue;
                 }
-                if (ie.code == ABS_MT_POSITION_Y) {
+                if (ie.code == ABS_MT_POSITION_Y || ie.code == ABS_Y) {
                     Finger[i][latest].id = (i * 2 + 1) * maxF + latest;
                     Finger[i][latest].y = ie.value;
                     continue;
@@ -240,8 +249,8 @@ static void *TypeA(void *arg) {
                             break;
                     }
 
-                    x = std::clamp(x, 0.0f, longEdge);
-                    y = std::clamp(y, 0.0f, shortEdge);
+                    x = std::clamp(x, 0.0f, (orientation == 1 || orientation == 3) ? longEdge : shortEdge);
+                    y = std::clamp(y, 0.0f, (orientation == 1 || orientation == 3) ? shortEdge : longEdge);
 
                     io.MousePos = ImVec2(x, y);
                     io.MouseDown[0] = true;

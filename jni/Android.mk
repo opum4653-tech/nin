@@ -33,11 +33,6 @@ include $(PREBUILT_STATIC_LIBRARY)
 # ============================================================
 include $(ROOT_JNI_PATH)/vendor/libevdev/Android.mk
 
-# ============================================================
-# Sub-module: minitouch-common (Minitouch Core Library)
-# ============================================================
-include $(ROOT_JNI_PATH)/minitouch/Android.mk
-
 # Restore ROOT_JNI_PATH for main executable
 LOCAL_PATH := $(ROOT_JNI_PATH)
 
@@ -125,7 +120,7 @@ LOCAL_LDFLAGS := \
     -Wl,-z,max-page-size=16384
 
 # ─── STATIC LIBS ───
-LOCAL_STATIC_LIBRARIES := curl ssl crypto libevdev minitouch-common
+LOCAL_STATIC_LIBRARIES := curl ssl crypto libevdev
 
 # ─── SYSTEM LIBS ───
 LOCAL_LDLIBS := \
