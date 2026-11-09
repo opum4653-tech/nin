@@ -720,6 +720,26 @@ static const char * const input_prop_map[INPUT_PROP_MAX + 1] = {
 	[INPUT_PROP_MAX] = "INPUT_PROP_MAX",
 };
 
+
+#ifndef MT_TOOL_MAX
+#define MT_TOOL_MAX 2
+#endif
+#ifndef MT_TOOL_FINGER
+#define MT_TOOL_FINGER 0
+#endif
+#ifndef MT_TOOL_PEN
+#define MT_TOOL_PEN 1
+#endif
+#ifndef MT_TOOL_PALM
+#define MT_TOOL_PALM 2
+#endif
+
+static const char * const mt_tool_map[MT_TOOL_MAX + 1] = {
+	[MT_TOOL_FINGER] = "MT_TOOL_FINGER",
+	[MT_TOOL_PEN] = "MT_TOOL_PEN",
+	[MT_TOOL_PALM] = "MT_TOOL_PALM",
+};
+
 static const char * const * const event_type_map[EV_MAX + 1] = {
 	[EV_REL] = rel_map,
 	[EV_ABS] = abs_map,
