@@ -181,10 +181,8 @@ static int start_overlay() {
     printf("[*] Probing display dimensions and screen orientation...\n");
     fflush(stdout);
 
+    display_safe::probe_orientation();
     screen_config();
-    if (displayInfo.orientation == 0) {
-        displayInfo.orientation = 1; // Default to landscape for gaming overlay
-    }
 
     int max_size = (displayInfo.height > displayInfo.width)
                    ? displayInfo.height : displayInfo.width;

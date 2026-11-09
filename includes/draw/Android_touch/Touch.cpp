@@ -224,6 +224,7 @@ static void *TypeA(void *arg) {
                     if (anyDown) break;
                 }
 
+                static bool s_wasDownLast = false;
                 if (anyDown) {
                     float raw_x = (float)Finger[downE][downF].x;
                     float raw_y = (float)Finger[downE][downF].y;
@@ -262,8 +263,18 @@ static void *TypeA(void *arg) {
 
                     io.MousePos = ImVec2(x, y);
                     io.MouseDown[0] = true;
+
+                    if (!s_wasDownLast) {
+                        LOG_INFO("Touch DOWN: raw=(%.0f, %.0f) -> screen=(%.1f, %.1f) [orient=%u, disp=%.0fx%.0f]",
+                                 raw_x, raw_y, x, y, orientation, dispW, dispH);
+                        s_wasDownLast = true;
+                    }
                 } else {
                     io.MouseDown[0] = false;
+                    if (s_wasDownLast) {
+                        LOG_INFO("Touch UP");
+                        s_wasDownLast = false;
+                    }
                 }
                 if (!Touch_readOnly) {
                     Upload();

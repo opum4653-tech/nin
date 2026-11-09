@@ -38,12 +38,11 @@ ANativeWindow *native_window;
 int native_window_screen_x = 0;
 int native_window_screen_y = 0;
 android::ANativeWindowCreator::DisplayInfo displayInfo{0};
-uint32_t orientation = 0;
+uint32_t orientation = 999;
 bool g_Initialized = false;
 ImGuiWindow *g_window = nullptr;
 
 bool initGUI_draw(uint32_t _screen_x, uint32_t _screen_y, bool log, bool hide) {
-    orientation = displayInfo.orientation;
 
     #if defined(USE_OPENGL)
         if (!init_egl(_screen_x, _screen_y, log, hide)) {

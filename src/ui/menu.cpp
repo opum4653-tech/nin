@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include "Android_draw/draw.h"
 #include "Android_touch/Touch.hpp"
+#include "other/logger.hpp"
 #include "func/esp.hpp"
 #include "func/aim.hpp"
 #include "cfg.hpp"
@@ -25,7 +26,7 @@ namespace ImGui {
 extern std::atomic<bool> main_thread_flag;
 static int activeTab = 0;
 static float ui_opacity = 1.0f;
-static std::atomic<bool> menu_open{false};
+static std::atomic<bool> menu_open{true};
 static std::atomic<bool> g_should_exit{false};
 
 // DESIGN 08: ELECTRIC ORCHID GLASS — COLOR DEFINITIONS
@@ -204,9 +205,9 @@ namespace ui::menu {
 
         ImGuiIO& io = ImGui::GetIO();
 
-        float realW = (float)displayInfo.width;
-        float realH = (float)displayInfo.height;
-        if (realW <= 0) realW = 1920.0f;
+        float realW = (io.DisplaySize.x > 0.0f) ? io.DisplaySize.x : (float)native_window_screen_x;
+        float realH = (io.DisplaySize.y > 0.0f) ? io.DisplaySize.y : (float)native_window_screen_y;
+        if (realW <= 0) realW = 2400.0f;
         if (realH <= 0) realH = 1080.0f;
 
         // SCREEN ROTATION & RESOLUTION TRACKER
@@ -268,8 +269,7 @@ namespace ui::menu {
                                          ImGuiWindowFlags_NoMove;
 
             if (ImGui::Begin("##NIN_MINI", nullptr, pillFlags)) {
-                ImVec2 avail = ImGui::GetContentRegionAvail();
-                bool clicked = ImGui::InvisibleButton("##ReOpenPill", avail);
+                bool clicked = ImGui::InvisibleButton("##ReOpenPill", ImVec2(pillW, pillH));
 
                 static ImVec2 s_touch_start = ImVec2(0, 0);
                 static bool s_is_dragging = false;
@@ -284,8 +284,8 @@ namespace ui::menu {
                 if (ImGui::IsItemActive()) {
                     float dx = io.MousePos.x - s_touch_start.x;
                     float dy = io.MousePos.y - s_touch_start.y;
-                    // Mobile touchscreen drag threshold: 24 pixels
-                    if (!s_is_dragging && (dx * dx + dy * dy) > (24.0f * 24.0f)) {
+                    // Mobile touchscreen drag threshold: 45 pixels
+                    if (!s_is_dragging && (dx * dx + dy * dy) > (45.0f * 45.0f)) {
                         s_is_dragging = true;
                         s_has_dragged = true;
                     }
@@ -302,7 +302,9 @@ namespace ui::menu {
                 }
 
                 if (clicked || (ImGui::IsItemDeactivated() && !s_has_dragged)) {
+                    LOG_INFO("Floating pill tapped -> Opening main menu! (Pill pos: %.1f, %.1f)", s_pill_pos.x, s_pill_pos.y);
                     menu_open = true; // Clean single tap: open menu
+                    menu_needs_reposition = true;
                     s_is_dragging = false;
                     s_has_dragged = false;
                 } else if (ImGui::IsItemDeactivated()) {
@@ -414,6 +416,7 @@ namespace ui::menu {
             ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 
             if (ImGui::Button("##CloseBtn", ImVec2(closeBtnSize, closeBtnSize))) {
+                LOG_INFO("Main menu close button clicked -> Minimizing to floating pill");
                 menu_open = false; // Pure close action
             }
             bool closeHovered = ImGui::IsItemHovered();
