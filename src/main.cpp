@@ -212,7 +212,7 @@ static int start_overlay() {
     printf("[*] Attaching Linux input touch listener...\n");
     fflush(stdout);
 
-    Touch_Init(displayInfo.width, displayInfo.height, displayInfo.orientation, true);
+    Touch_Init(native_window_screen_x, native_window_screen_y, displayInfo.orientation, true);
 
 // START BACKGROUND ATTACH THREAD
     // Allows overlay GUI & floating logo to appear immediately upon launching,

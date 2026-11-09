@@ -651,10 +651,40 @@ namespace android {
         }
 
         static DisplayInfo GetDisplayInfo() {
+            auto &surfaceComposerClient = GetComposerInstance();
+            detail::ui::DisplayState displayInfo{};
+
+            if (surfaceComposerClient.GetDisplayInfo(&displayInfo)) {
+                if (detail::Functionals::GetInstance().systemVersion <= 10) {
+                    DisplayInfo mDisplayInfo{};
+                    if (static_cast<uint32_t>(displayInfo.orientation) == 1 || static_cast<uint32_t>(displayInfo.orientation) == 3) {
+                        mDisplayInfo.width = displayInfo.layerStackSpaceRect.height;
+                        mDisplayInfo.height = displayInfo.layerStackSpaceRect.width;
+                    } else {
+                        mDisplayInfo.width = displayInfo.layerStackSpaceRect.width;
+                        mDisplayInfo.height = displayInfo.layerStackSpaceRect.height;
+                    }
+                    mDisplayInfo.orientation = static_cast<uint32_t>(displayInfo.orientation);
+                    return mDisplayInfo;
+                }
+                
+                return DisplayInfo{
+                        .orientation = static_cast<uint32_t>(displayInfo.orientation),
+                        .width = displayInfo.layerStackSpaceRect.width,
+                        .height = displayInfo.layerStackSpaceRect.height,
+                };
+            }
+
+            // Safe fallback if SurfaceComposerClient query fails
             auto safe = display_safe::get_info();
             DisplayInfo d{};
-            d.width = safe.width;
-            d.height = safe.height;
+            if (safe.orientation == 1 || safe.orientation == 3) {
+                d.width = (safe.height > safe.width) ? safe.height : safe.width;
+                d.height = (safe.height < safe.width) ? safe.height : safe.width;
+            } else {
+                d.width = (safe.height < safe.width) ? safe.height : safe.width;
+                d.height = (safe.height > safe.width) ? safe.height : safe.width;
+            }
             d.orientation = safe.orientation;
             return d;
         }

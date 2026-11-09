@@ -458,39 +458,72 @@ bool Touch_Init(int w, int h, uint32_t orientation_, bool readOnly) {
     touchMaxX = screenX;
     touchMaxY = screenY;
 
-    ::screenWidth = w;
-    ::screenHeight = h; 
     ::orientation = orientation_;
+
+    // Normalize display dimensions to prevent axis inversion:
+    // In landscape (orientation 1 or 3), screenWidth is the longer edge, screenHeight is the shorter edge.
+    // In portrait (orientation 0 or 2), screenWidth is the shorter edge, screenHeight is the longer edge.
+    int dispW = w;
+    int dispH = h;
     if (::orientation == 1 || ::orientation == 3) {
-        ::scale_x = (float) screenX / h;
-        ::scale_y = (float) screenY / w;
+        dispW = (w > h) ? w : h;
+        dispH = (w < h) ? w : h;
     } else {
-        ::scale_x = (float) screenX / w;
-        ::scale_y = (float) screenY / h;    
+        dispW = (w < h) ? w : h;
+        dispH = (w > h) ? w : h;
     }
 
-    /*   
-    LOGD("scale %.2f %.2f ", scale_x, scale_x);
-    LOGD("screen %d %d ", screenX, screenY);
-    LOGD("screenSize %.1f %.1f ", x, y);
-    */
-    // system("chmod 000 -R /proc/bus/input/*");
+    ::screenWidth = static_cast<float>(dispW);
+    ::screenHeight = static_cast<float>(dispH);
+
+    int digShort = (screenX < screenY) ? screenX : screenY;
+    int digLong  = (screenX > screenY) ? screenX : screenY;
+
+    if (::orientation == 1 || ::orientation == 3) {
+        ::scale_x = (float) digShort / (float)dispH;
+        ::scale_y = (float) digLong  / (float)dispW;
+    } else {
+        ::scale_x = (float) digShort / (float)dispW;
+        ::scale_y = (float) digLong  / (float)dispH;
+    }
+
+    LOG_INFO("Touch_Init applied: screen=%.0fx%.0f, digitizer=%dx%d, scale=(%.3f, %.3f), orient=%u",
+             ::screenWidth, ::screenHeight, screenX, screenY, ::scale_x, ::scale_y, ::orientation);
+
     return true;
 }
+
 void UpdateScreenData(int w, int h, uint32_t orientation_) {
-    ::screenWidth = w;
-    ::screenHeight = h; 
     ::orientation = orientation_;
-    LOG_INFO("Touch UpdateScreenData applied: %dx%d, orientation=%u", w, h, orientation_);
-    if (touchMaxX > 0 && touchMaxY > 0 && w > 0 && h > 0) {
+
+    int dispW = w;
+    int dispH = h;
+    if (::orientation == 1 || ::orientation == 3) {
+        dispW = (w > h) ? w : h;
+        dispH = (w < h) ? w : h;
+    } else {
+        dispW = (w < h) ? w : h;
+        dispH = (w > h) ? w : h;
+    }
+
+    ::screenWidth = static_cast<float>(dispW);
+    ::screenHeight = static_cast<float>(dispH);
+
+    if (touchMaxX > 0 && touchMaxY > 0 && dispW > 0 && dispH > 0) {
+        int digShort = (touchMaxX < touchMaxY) ? touchMaxX : touchMaxY;
+        int digLong  = (touchMaxX > touchMaxY) ? touchMaxX : touchMaxY;
+
         if (::orientation == 1 || ::orientation == 3) {
-            ::scale_x = (float) touchMaxX / (float)h;
-            ::scale_y = (float) touchMaxY / (float)w;
+            ::scale_x = (float) digShort / (float)dispH;
+            ::scale_y = (float) digLong  / (float)dispW;
         } else {
-            ::scale_x = (float) touchMaxX / (float)w;
-            ::scale_y = (float) touchMaxY / (float)h;    
+            ::scale_x = (float) digShort / (float)dispW;
+            ::scale_y = (float) digLong  / (float)dispH;
         }
     }
+
+    LOG_INFO("Touch UpdateScreenData applied: screen=%.0fx%.0f, scale=(%.3f, %.3f), orient=%u",
+             ::screenWidth, ::screenHeight, ::scale_x, ::scale_y, ::orientation);
 }
 
 

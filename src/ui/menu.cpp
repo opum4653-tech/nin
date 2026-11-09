@@ -303,51 +303,70 @@ namespace ui::menu {
             ImDrawList* dl = ImGui::GetWindowDrawList();
             ImVec2 center = s_circle_pos;
 
-            // Direct geometric hit-test & touch handling (never drops clicks!)
+            // 1. Registered Dear ImGui button target covering the full circle window
+            ImGui::SetCursorScreenPos(winPos);
+            bool clicked = ImGui::InvisibleButton("##CircleHitbox", winSize);
+            const bool active  = ImGui::IsItemActive();
+            const bool deactivated = ImGui::IsItemDeactivated();
+
+            // 2. Drag & Tap Tracking via ImGui Item state + Direct Geometric Fallback
+            if (ImGui::IsItemActivated()) {
+                s_touch_start_pos = io.MousePos;
+                s_drag_threshold_exceeded = false;
+                s_is_dragging = false;
+            }
+
+            if (active) {
+                float dx = io.MousePos.x - s_touch_start_pos.x;
+                float dy = io.MousePos.y - s_touch_start_pos.y;
+                if (!s_drag_threshold_exceeded && (dx * dx + dy * dy) > (18.0f * 18.0f)) {
+                    s_drag_threshold_exceeded = true;
+                    s_is_dragging = true;
+                }
+
+                if (s_is_dragging) {
+                    s_circle_pos.x += io.MouseDelta.x;
+                    s_circle_pos.y += io.MouseDelta.y;
+
+                    s_circle_pos.x = std::max(margin + logoRadius, std::min(s_circle_pos.x, realW - logoRadius - margin));
+                    s_circle_pos.y = std::max(margin + logoRadius, std::min(s_circle_pos.y, realH - logoRadius - margin));
+                }
+            }
+
+            // Direct geometric tap fallback (in case InvisibleButton is missed by low polling rate)
+            bool geo_tap = false;
             if (io.MouseDown[0]) {
-                float dx = io.MousePos.x - center.x;
-                float dy = io.MousePos.y - center.y;
-                float dist_sq = dx * dx + dy * dy;
-
-                float hit_radius = logoRadius + 12.0f; // Generous 44px hit-radius for finger pads
-
-                if (!s_is_touch_down) {
-                    if (dist_sq <= hit_radius * hit_radius) {
-                        s_is_touch_down = true;
-                        s_touch_start_pos = io.MousePos;
-                        s_drag_threshold_exceeded = false;
-                        s_is_dragging = false;
-                    }
-                } else {
-                    float mx = io.MousePos.x - s_touch_start_pos.x;
-                    float my = io.MousePos.y - s_touch_start_pos.y;
-                    float move_dist_sq = mx * mx + my * my;
-
-                    if (!s_drag_threshold_exceeded && move_dist_sq > (18.0f * 18.0f)) {
-                        s_drag_threshold_exceeded = true;
-                        s_is_dragging = true;
-                    }
-
-                    if (s_is_dragging) {
-                        s_circle_pos.x += io.MouseDelta.x;
-                        s_circle_pos.y += io.MouseDelta.y;
-
-                        s_circle_pos.x = std::max(margin + logoRadius, std::min(s_circle_pos.x, realW - logoRadius - margin));
-                        s_circle_pos.y = std::max(margin + logoRadius, std::min(s_circle_pos.y, realH - logoRadius - margin));
-                    }
+                float cdx = io.MousePos.x - center.x;
+                float cdy = io.MousePos.y - center.y;
+                if (!s_is_touch_down && (cdx * cdx + cdy * cdy <= (logoRadius + 14.0f) * (logoRadius + 14.0f))) {
+                    s_is_touch_down = true;
+                    s_touch_start_pos = io.MousePos;
+                    s_drag_threshold_exceeded = false;
                 }
             } else {
                 if (s_is_touch_down) {
-                    if (!s_drag_threshold_exceeded) {
-                        // 100% RELIABLE TAP DETECTION
-                        menu_open = !menu_open;
-                        menu_needs_reposition = true;
-                        LOG_INFO("Floating Logo TAPPED -> menu_open = %s (pos: %.1f, %.1f)", menu_open ? "TRUE" : "FALSE", s_circle_pos.x, s_circle_pos.y);
+                    float cdx = io.MousePos.x - s_touch_start_pos.x;
+                    float cdy = io.MousePos.y - s_touch_start_pos.y;
+                    if (!s_drag_threshold_exceeded && (cdx * cdx + cdy * cdy <= (20.0f * 20.0f))) {
+                        geo_tap = true;
                     }
                     s_is_touch_down = false;
-                    s_drag_threshold_exceeded = false;
-                    s_is_dragging = false;
                 }
+            }
+
+            // Triple-redundant tap detection: clicked OR deactivated without drag OR direct geometric tap
+            if (clicked || geo_tap || (deactivated && !s_drag_threshold_exceeded)) {
+                menu_open = !menu_open;
+                menu_needs_reposition = true;
+                LOG_INFO("Floating Logo CLICKED -> menu_open is now %s (clicked=%d, geo=%d, deact=%d)",
+                         menu_open ? "TRUE" : "FALSE", clicked, geo_tap, deactivated);
+                s_drag_threshold_exceeded = false;
+                s_is_dragging = false;
+                s_is_touch_down = false;
+            } else if (deactivated) {
+                s_drag_threshold_exceeded = false;
+                s_is_dragging = false;
+                s_is_touch_down = false;
             }
 
             // Draw circular emblem with spinning orbital arcs
