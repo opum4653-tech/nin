@@ -245,62 +245,8 @@ static void *TypeA(void *arg) {
 
                     io.MousePos = ImVec2(x, y);
                     io.MouseDown[0] = true;
-
-                    if (!s_wasDownLast) {
-                        LOG_INFO("Touch DOWN: slot=%d, raw=(%.0f, %.0f) -> screen=(%.1f, %.1f) [orient=%u, scr=%.0fx%.0f]",
-                                 latest, raw_x, raw_y, x, y, orientation, screenWidth, screenHeight);
-                        s_wasDownLast = true;
-                    }
                 } else {
-                    // Check if any other finger slot is currently down
-                    bool anyOtherDown = false;
-                    for (int f = 0; f < maxF; f++) {
-                        if (Finger[i][f].isDown) {
-                            anyOtherDown = true;
-                            float raw_x = (float)Finger[i][f].x;
-                            float raw_y = (float)Finger[i][f].y;
-                            float xt = raw_x / scale_x;
-                            float yt = raw_y / scale_y;
-
-                            float x = 0.0f, y = 0.0f;
-                            switch (orientation) {
-                                case 1:
-                                    x = yt;
-                                    y = screenHeight - xt;
-                                    break;
-                                case 2:
-                                    x = screenHeight - xt;
-                                    y = screenWidth - yt;
-                                    break;
-                                case 3:
-                                    y = xt;
-                                    x = screenWidth - yt;
-                                    break;
-                                case 0:
-                                default:
-                                    x = xt;
-                                    y = yt;
-                                    break;
-                            }
-
-                            if (x < 0.0f) x = 0.0f;
-                            if (x > screenWidth) x = screenWidth;
-                            if (y < 0.0f) y = 0.0f;
-                            if (y > screenHeight) y = screenHeight;
-
-                            io.MousePos = ImVec2(x, y);
-                            io.MouseDown[0] = true;
-                            break;
-                        }
-                    }
-
-                    if (!anyOtherDown) {
-                        io.MouseDown[0] = false;
-                        if (s_wasDownLast) {
-                            LOG_INFO("Touch UP (all fingers released)");
-                            s_wasDownLast = false;
-                        }
-                    }
+                    io.MouseDown[0] = false;
                 }
 
                 if (!Touch_readOnly) {

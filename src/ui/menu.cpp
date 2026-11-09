@@ -262,13 +262,13 @@ namespace ui::menu {
 
         // FLOATING CIRCULAR LOGO BUTTON — FULLY DRAGGABLE
         // Tap = Toggle Menu | Drag = Relocate anywhere on screen
-        const float logoRadius = 32.0f; // 64px diameter, clean mobile fingertip target
+        const float logoRadius = 45.0f; // 90px diameter, comfortable mobile fingertip target
         const float logoDiameter = logoRadius * 2.0f;
         const float margin = 12.0f;
 
         static ImVec2 s_circle_pos = ImVec2(-1.0f, -1.0f);
         if (s_circle_pos.x < 0.0f || pill_needs_reposition) {
-            s_circle_pos = ImVec2((realW > 1000.0f) ? 70.0f : 45.0f, (realH > 600.0f) ? 140.0f : 80.0f);
+            s_circle_pos = ImVec2((realW > 1000.0f) ? 80.0f : 50.0f, (realH > 600.0f) ? 140.0f : 90.0f);
             pill_needs_reposition = false;
         }
 
@@ -282,8 +282,8 @@ namespace ui::menu {
         static bool s_is_dragging = false;
 
         // Window for floating circular logo
-        ImVec2 winPos = ImVec2(s_circle_pos.x - logoRadius - 8.0f, s_circle_pos.y - logoRadius - 8.0f);
-        ImVec2 winSize = ImVec2(logoDiameter + 16.0f, logoDiameter + 16.0f);
+        ImVec2 winPos = ImVec2(s_circle_pos.x - logoRadius, s_circle_pos.y - logoRadius);
+        ImVec2 winSize = ImVec2(logoDiameter, logoDiameter);
 
         ImGui::SetNextWindowPos(winPos, ImGuiCond_Always);
         ImGui::SetNextWindowSize(winSize, ImGuiCond_Always);
@@ -299,6 +299,7 @@ namespace ui::menu {
                                        ImGuiWindowFlags_NoFocusOnAppearing |
                                        ImGuiWindowFlags_NoBringToFrontOnFocus;
 
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         if (ImGui::Begin("##NINMODS_FLOATING_CIRCLE", nullptr, circleFlags)) {
             ImDrawList* dl = ImGui::GetWindowDrawList();
             ImVec2 center = s_circle_pos;
@@ -319,7 +320,7 @@ namespace ui::menu {
             if (active) {
                 float dx = io.MousePos.x - s_touch_start_pos.x;
                 float dy = io.MousePos.y - s_touch_start_pos.y;
-                if (!s_drag_threshold_exceeded && (dx * dx + dy * dy) > (18.0f * 18.0f)) {
+                if (!s_drag_threshold_exceeded && (dx * dx + dy * dy) > (25.0f * 25.0f)) {
                     s_drag_threshold_exceeded = true;
                     s_is_dragging = true;
                 }
@@ -338,7 +339,7 @@ namespace ui::menu {
             if (io.MouseDown[0]) {
                 float cdx = io.MousePos.x - center.x;
                 float cdy = io.MousePos.y - center.y;
-                if (!s_is_touch_down && (cdx * cdx + cdy * cdy <= (logoRadius + 14.0f) * (logoRadius + 14.0f))) {
+                if (!s_is_touch_down && (cdx * cdx + cdy * cdy <= (logoRadius + 15.0f) * (logoRadius + 15.0f))) {
                     s_is_touch_down = true;
                     s_touch_start_pos = io.MousePos;
                     s_drag_threshold_exceeded = false;
@@ -347,7 +348,7 @@ namespace ui::menu {
                 if (s_is_touch_down) {
                     float cdx = io.MousePos.x - s_touch_start_pos.x;
                     float cdy = io.MousePos.y - s_touch_start_pos.y;
-                    if (!s_drag_threshold_exceeded && (cdx * cdx + cdy * cdy <= (20.0f * 20.0f))) {
+                    if (!s_drag_threshold_exceeded && (cdx * cdx + cdy * cdy <= (25.0f * 25.0f))) {
                         geo_tap = true;
                     }
                     s_is_touch_down = false;
@@ -381,6 +382,7 @@ namespace ui::menu {
             dl->AddCircleFilled(stDot, 2.5f, stCol);
         }
         ImGui::End();
+        ImGui::PopStyleVar();
 
         // If menu is minimized, done for this frame
         if (!menu_open) {
