@@ -16,8 +16,8 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/draw/ImGui
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/draw/ImGui/backends
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/protect
-    ${CMAKE_CURRENT_SOURCE_DIR}/includes/libs/minitouch/jni/vendor/libevdev/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/includes/libs/minitouch/jni/vendor/libevdev/source/libevdev
+    ${CMAKE_CURRENT_SOURCE_DIR}/includes/vendor/minitouch/jni/vendor/libevdev/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/includes/vendor/minitouch/jni/vendor/libevdev/source/libevdev
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/png

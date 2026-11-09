@@ -1,6 +1,6 @@
 # Build outputs
 obj/
-libs/
+/libs/
 *.o
 *.d
 *.bak
