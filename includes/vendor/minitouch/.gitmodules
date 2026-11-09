@@ -1,3 +1,0 @@
-[submodule "libevdev"]
-	path = jni/vendor/libevdev/source
-	url = git://anongit.freedesktop.org/libevdev
