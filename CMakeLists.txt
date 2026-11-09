@@ -16,6 +16,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/draw/ImGui
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/draw/ImGui/backends
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/protect
+    ${CMAKE_CURRENT_SOURCE_DIR}/jni/vendor/glm
     ${CMAKE_CURRENT_SOURCE_DIR}/jni/vendor/libevdev/include
     ${CMAKE_CURRENT_SOURCE_DIR}/jni/vendor/libevdev/source/include
     ${CMAKE_CURRENT_SOURCE_DIR}/jni/vendor/libevdev/source/libevdev

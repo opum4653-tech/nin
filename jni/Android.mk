@@ -55,6 +55,7 @@ LOCAL_SRC_FILES := $(filter-out \
 
 # ─── INCLUDE DIRS ───
 LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/vendor/glm \
     $(LOCAL_PATH)/vendor/libevdev/include \
     $(LOCAL_PATH)/vendor/libevdev/source/include \
     $(LOCAL_PATH)/vendor/libevdev/source/libevdev \
