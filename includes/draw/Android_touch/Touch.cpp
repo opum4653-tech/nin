@@ -209,9 +209,24 @@ static void *TypeA(void *arg) {
             }
             if (ie.code == SYN_REPORT) {
                 ImGuiIO &io = ImGui::GetIO();
-                if (Finger[i][latest].isDown) {
-                    float raw_x = (float)Finger[i][latest].x;
-                    float raw_y = (float)Finger[i][latest].y;
+                bool anyDown = false;
+                int downE = -1;
+                int downF = -1;
+                for (int e = 0; e < fdNum; e++) {
+                    for (int f = 0; f < maxF; f++) {
+                        if (Finger[e][f].isDown) {
+                            anyDown = true;
+                            downE = e;
+                            downF = f;
+                            break;
+                        }
+                    }
+                    if (anyDown) break;
+                }
+
+                if (anyDown) {
+                    float raw_x = (float)Finger[downE][downF].x;
+                    float raw_y = (float)Finger[downE][downF].y;
                     float max_x = (touchMaxX > 0) ? (float)touchMaxX : ((screenWidth > 0) ? screenWidth : 1080.0f);
                     float max_y = (touchMaxY > 0) ? (float)touchMaxY : ((screenHeight > 0) ? screenHeight : 2400.0f);
                     float nx = raw_x / max_x;
