@@ -1,4 +1,5 @@
 LOCAL_PATH := $(call my-dir)
+ROOT_JNI_PATH := $(LOCAL_PATH)
 
 # ============================================================
 # Prebuilt: libcurl (Official Network Library)
@@ -28,6 +29,19 @@ LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../includes/network/openssl/include
 include $(PREBUILT_STATIC_LIBRARY)
 
 # ============================================================
+# Sub-module: libevdev (Touch & Evdev Static Library)
+# ============================================================
+include $(ROOT_JNI_PATH)/vendor/libevdev/Android.mk
+
+# ============================================================
+# Sub-module: minitouch-common (Minitouch Core Library)
+# ============================================================
+include $(ROOT_JNI_PATH)/minitouch/Android.mk
+
+# Restore ROOT_JNI_PATH for main executable
+LOCAL_PATH := $(ROOT_JNI_PATH)
+
+# ============================================================
 # MAIN MODULE — gemini-cli
 # ============================================================
 include $(CLEAR_VARS)
@@ -46,6 +60,10 @@ LOCAL_SRC_FILES := $(filter-out \
 
 # ─── INCLUDE DIRS ───
 LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/vendor/libevdev/include \
+    $(LOCAL_PATH)/vendor/libevdev/source/include \
+    $(LOCAL_PATH)/vendor/libevdev/source/libevdev \
+    $(LOCAL_PATH)/minitouch \
     $(LOCAL_PATH)/../includes \
     $(LOCAL_PATH)/../includes/network \
     $(LOCAL_PATH)/../includes/network/curl/include \
@@ -107,7 +125,7 @@ LOCAL_LDFLAGS := \
     -Wl,-z,max-page-size=16384
 
 # ─── STATIC LIBS ───
-LOCAL_STATIC_LIBRARIES := curl ssl crypto
+LOCAL_STATIC_LIBRARIES := curl ssl crypto libevdev minitouch-common
 
 # ─── SYSTEM LIBS ───
 LOCAL_LDLIBS := \
