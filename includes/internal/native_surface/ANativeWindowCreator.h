@@ -566,12 +566,17 @@ namespace android {
                                                                                              layerMetadata, nullptr);
                 }
 
-                if (result.get() && 12 <= Functionals::GetInstance().systemVersion) {
+                if (result.get()) {
                     if (Functionals::GetInstance().SurfaceComposerClient__Transaction__Constructor &&
-                        Functionals::GetInstance().SurfaceComposerClient__Transaction__SetTrustedOverlay &&
                         Functionals::GetInstance().SurfaceComposerClient__Transaction__Apply) {
                         static SurfaceComposerClientTransaction transaction;
-                        transaction.SetTrustedOverlay(result, true);
+                        if (Functionals::GetInstance().SurfaceComposerClient__Transaction__SetLayer) {
+                            transaction.SetLayer(result, 0x7FFFFFFF); // Topmost Z-Order above any fullscreen game window
+                        }
+                        if (12 <= Functionals::GetInstance().systemVersion &&
+                            Functionals::GetInstance().SurfaceComposerClient__Transaction__SetTrustedOverlay) {
+                            transaction.SetTrustedOverlay(result, true);
+                        }
                         transaction.Apply(false, true);
                     }
                 }

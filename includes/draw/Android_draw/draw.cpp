@@ -1,5 +1,6 @@
 #include "Android_draw/draw.h"
 #include "Font.h"
+#include "other/logger.hpp"
 #include <dlfcn.h>
 
 typedef void (*pfn_ANW_acquire)(ANativeWindow*);
@@ -195,6 +196,8 @@ bool ImGui_init() {
 void drawBegin() {
     screen_config();
     if (::orientation != displayInfo.orientation) {
+        LOG_INFO("Display orientation transition detected: %u -> %u (Dims: %dx%d)",
+                 ::orientation, displayInfo.orientation, displayInfo.width, displayInfo.height);
         ::orientation = displayInfo.orientation;
         UpdateScreenData(displayInfo.width, displayInfo.height, displayInfo.orientation);
     }

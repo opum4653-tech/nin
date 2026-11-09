@@ -7,8 +7,10 @@
 #include <cmath>
 #include <linux/input.h>
 #include <linux/uinput.h>
+#include <atomic>
 
 #include "imgui.h"
+#include "other/logger.hpp"
 
 #define maxE 5
 #define maxF 10
@@ -82,10 +84,13 @@ static void genRandomString(char *string, int length) {
 
 
 static void Upload() {
-    static bool bTouch = false;
+    static std::atomic<bool> bTouch{false};
     static bool isFirstDown = true;
-    while (bTouch);
-    bTouch = true;
+    bool expected = false;
+    while (!bTouch.compare_exchange_weak(expected, true, std::memory_order_acquire)) {
+        expected = false;
+        usleep(100);
+    }
     int tmpCnt = 0, tmpCnt2 = 0, i, j;
     for (i = 0; i < fdNum; i++) {
         for (j = 0; j < maxF; j++) {
@@ -158,7 +163,7 @@ static void Upload() {
         write(nowfd, input.event, sizeof(struct input_event) * tmpCnt);
     }
 
-    bTouch = false;
+    bTouch.store(false, std::memory_order_release);
 }
 
 static void *TypeA(void *arg) {
@@ -423,6 +428,7 @@ void UpdateScreenData(int w, int h, uint32_t orientation_) {
     ::screenWidth = w;
     ::screenHeight = h; 
     ::orientation = orientation_;
+    LOG_INFO("Touch UpdateScreenData applied: %dx%d, orientation=%u", w, h, orientation_);
     if (touchMaxX > 0 && touchMaxY > 0 && w > 0 && h > 0) {
         if (::orientation == 1 || ::orientation == 3) {
             ::scale_x = (float) touchMaxX / (float)h;

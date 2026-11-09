@@ -5,6 +5,7 @@
 #include "other/memory.hpp"
 #include "other/crash_handler.hpp"
 #include "other/display_manager.hpp"
+#include "other/logger.hpp"
 #include "game/data.hpp"
 #include "game/Offsets.h"
 #include "func/esp.hpp"
@@ -219,6 +220,7 @@ static int start_overlay() {
     // Allows overlay GUI & floating logo to appear immediately upon launching,
     // without blocking for game launch.
     std::thread attach_worker([]() {
+        LOG_INFO("Target attach daemon thread launched. Polling game process and screen orientation.");
         while (main_thread_flag) {
             display_safe::probe_orientation();
             proc::pid = get_pid();
@@ -229,23 +231,27 @@ static int start_overlay() {
                     uint32_t elfMagic = rpm<uint32_t>(proc::lib);
                     if (elfMagic == 0x464C457F) {
                         data::thread_start();
+                        LOG_INFO("Runtime subsystem attached (PID: %d, Lib: 0x%lx)", proc::pid, (unsigned long)proc::lib);
                         printf("[+] Runtime subsystem attached (PID: %d, Lib: 0x%lx)\n", proc::pid, (unsigned long)proc::lib);
                         fflush(stdout);
 
-                        // Monitor target lifecycle
+                        // Monitor target lifecycle and dynamic orientation during active gameplay
                         while (main_thread_flag) {
                             if (get_pid() <= 0) {
                                 data::thread_stop();
+                                LOG_INFO("Session detached (PID exited). Waiting for reconnect...");
                                 printf("[*] Session detached. Waiting for reconnect...\n");
                                 fflush(stdout);
                                 break;
                             }
-                            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                            // Keep tracking orientation while attached to ensure touch matrix matches screen rotation
+                            display_safe::probe_orientation();
+                            std::this_thread::sleep_for(std::chrono::milliseconds(500));
                         }
                     }
                 }
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
     });
     attach_worker.detach();
