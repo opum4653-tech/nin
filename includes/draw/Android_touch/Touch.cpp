@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <cmath>
+#include <algorithm>
 #include <linux/input.h>
 #include <linux/uinput.h>
 
@@ -29,8 +30,8 @@ struct touchObj {
 
 struct targ {
     int fdNum;
-    float S2TX;
-    float S2TY;
+    float maxRawX;
+    float maxRawY;
 };
 
 static struct {
@@ -42,12 +43,13 @@ static struct {
 static targ targF[maxE];
 static touchObj Finger[maxE][maxF];
 static int fdNum = 0, origfd[maxE], nowfd;
-static float scale_x = 1.0f, scale_y = 1.0f;
-static int s_touchScreenX = 0, s_touchScreenY = 0;
+static int s_primaryFdIndex = 0;
+static float s_digitizerMaxX = 0.0f, s_digitizerMaxY = 0.0f;
+
 static bool Touch_initialized = false;
 static bool Touch_readOnly = false;
 
-static bool checkDeviceIsTouch(int fd);
+static bool checkDeviceIsTouch(int fd, float &outMaxX, float &outMaxY);
 
 static void genRandomString(char *string, int length) {
     int flag, i;
@@ -155,8 +157,8 @@ static void Upload() {
 static void *TypeA(void *arg) {
     targ tmp = *(targ *) arg;
     int i = tmp.fdNum;
-    float S2TX = tmp.S2TX;
-    float S2TY = tmp.S2TY;
+    float maxRawX = (tmp.maxRawX > 0.0f) ? tmp.maxRawX : 1080.0f;
+    float maxRawY = (tmp.maxRawY > 0.0f) ? tmp.maxRawY : 2400.0f;
     int latest = 0;
     input_event inputEvent[64]{0};
 
@@ -170,7 +172,9 @@ static void *TypeA(void *arg) {
             input_event &ie = inputEvent[j];
             if (ie.type == EV_ABS) {
                 if (ie.code == ABS_MT_SLOT) {
-                    latest = ie.value;
+                    if (ie.value >= 0 && ie.value < maxF) {
+                        latest = ie.value;
+                    }
                     continue;
                 }
                 if (ie.code == ABS_MT_TRACKING_ID) {
@@ -184,61 +188,54 @@ static void *TypeA(void *arg) {
                 }
                 if (ie.code == ABS_MT_POSITION_X) {
                     Finger[i][latest].id = (i * 2 + 1) * maxF + latest;
-                    Finger[i][latest].x = (int) (ie.value * S2TX);
+                    Finger[i][latest].x = ie.value;
                     continue;
                 }
                 if (ie.code == ABS_MT_POSITION_Y) {
                     Finger[i][latest].id = (i * 2 + 1) * maxF + latest;
-                    Finger[i][latest].y = (int) (ie.value * S2TY);
+                    Finger[i][latest].y = ie.value;
                     continue;
                 }
             }
             if (ie.code == SYN_REPORT) {
                 ImGuiIO &io = ImGui::GetIO();
                 if (Finger[i][latest].isDown) {
-                    float x = Finger[i][latest].x, y = Finger[i][latest].y;
-                    float xt = x / scale_x;
-                    float yt = y / scale_y;
+                    // Continuous pure normalized mathematical mapping [0.0 - 1.0]
+                    // Completely eliminates digitizer hardware grid differences (1080, 2400, 4096, 32767)
+                    float norm_u = std::clamp((float)Finger[i][latest].x / maxRawX, 0.0f, 1.0f);
+                    float norm_v = std::clamp((float)Finger[i][latest].y / maxRawY, 0.0f, 1.0f);
 
-                    if (other_touch) {
-                        switch (orientation) {
-                            case 1:
-                                x = xt;
-                                y = yt;
-                                break;
-                            case 2:
-                                y = yt;
-                                x = screenHeight - xt;
-                                break;
-                            case 3:
-                                x = screenHeight - xt;
-                                y = screenWidth - yt;
-                                break;
-                            default:
-                                y = xt;
-                                x = screenHeight - yt;
-                                break;
-                        }
-                    } else {
-                        switch (orientation) {
-                            case 1:
-                                x = yt;
-                                y = screenHeight - xt;
-                                break;
-                            case 2:
-                                x = screenHeight - xt;
-                                y = screenWidth - yt;
-                                break;
-                            case 3:
-                                y = xt;
-                                x = screenWidth - yt;
-                                break;
-                            default:
-                                x = xt;
-                                y = yt;
-                                break;
-                        }
+                    float dispW = (screenWidth > 0.0f) ? screenWidth : 2400.0f;
+                    float dispH = (screenHeight > 0.0f) ? screenHeight : 1080.0f;
+
+                    // Ensure dispW is long edge and dispH is short edge for landscape
+                    float longEdge  = std::max(dispW, dispH);
+                    float shortEdge = std::min(dispW, dispH);
+
+                    float x = 0.0f, y = 0.0f;
+                    switch (orientation) {
+                        case 1: // Landscape (standard mobile gaming orientation)
+                            x = norm_v * longEdge;
+                            y = (1.0f - norm_u) * shortEdge;
+                            break;
+                        case 2: // Reverse Portrait (180 deg)
+                            x = (1.0f - norm_u) * shortEdge;
+                            y = (1.0f - norm_v) * longEdge;
+                            break;
+                        case 3: // Reverse Landscape (270 deg)
+                            x = (1.0f - norm_v) * longEdge;
+                            y = norm_u * shortEdge;
+                            break;
+                        case 0: // Portrait
+                        default:
+                            x = norm_u * shortEdge;
+                            y = norm_v * longEdge;
+                            break;
                     }
+
+                    x = std::clamp(x, 0.0f, longEdge);
+                    y = std::clamp(y, 0.0f, shortEdge);
+
                     io.MousePos = ImVec2(x, y);
                     io.MouseDown[0] = true;
                 } else {
@@ -266,42 +263,55 @@ bool Touch_Init(int w, int h, uint32_t orientation_, bool readOnly) {
     }
     closedir(dir);
 
-    struct input_absinfo abs, absX[maxE], absY[maxE];
-    int fd, i, tmp1, tmp2;
-    int screenX = 0, screenY = 0, minCnt = eventCount + 1;
+    struct input_absinfo absX[maxE], absY[maxE];
+    int fd, i;
+    float maxArea = 0.0f;
+    int bestFdIndex = -1;
     fdNum = 0;
+
     for (i = 0; i <= eventCount; i++) {
         sprintf(temp, "/dev/input/event%d", i);
         fd = open(temp, O_RDWR);
         if (fd < 0) {
             continue;
         }
-        if (checkDeviceIsTouch(fd)) {
-            tmp1 = ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &absX[fdNum]);
-            tmp2 = ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &absY[fdNum]);
+
+        float devMaxX = 0.0f, devMaxY = 0.0f;
+        if (checkDeviceIsTouch(fd, devMaxX, devMaxY)) {
+            int tmp1 = ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &absX[fdNum]);
+            int tmp2 = ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &absY[fdNum]);
             if (tmp1 == 0 && tmp2 == 0) {
                 origfd[fdNum] = fd;
                 if (!readOnly) {
                     ioctl(fd, EVIOCGRAB, GRAB);
                 }
-                if (i < minCnt) {
-                    screenX = absX[fdNum].maximum;
-                    screenY = absY[fdNum].maximum;
-                    minCnt = i;
+
+                // Identify primary screen by largest digitizer resolution area
+                float area = devMaxX * devMaxY;
+                if (area > maxArea) {
+                    maxArea = area;
+                    bestFdIndex = fdNum;
+                    s_digitizerMaxX = devMaxX;
+                    s_digitizerMaxY = devMaxY;
                 }
+
                 fdNum++;
                 if (fdNum >= maxE)
                     break;
+            } else {
+                close(fd);
             }
         } else {
             close(fd);
         }
     }
 
-    if (minCnt > eventCount) {
-        puts("Failed init touch!");
+    if (fdNum == 0) {
+        puts("[-] Failed to find touchscreen device in /dev/input/");
         return false;
     }
+
+    s_primaryFdIndex = (bestFdIndex >= 0) ? bestFdIndex : 0;
 
     if (!readOnly) {
         struct uinput_user_dev ui_dev;
@@ -338,45 +348,14 @@ bool Touch_Init(int w, int h, uint32_t orientation_, bool readOnly) {
         genRandomString(string, string_len);
         ioctl(nowfd, UI_SET_PHYS, string);
 
-        sprintf(temp, "/dev/input/event%d", minCnt);
-        fd = open(temp, O_RDWR);
-        if (fd) {
-            struct input_id id;
-            if (!ioctl(fd, EVIOCGID, &id)) {
-                ui_dev.id.bustype = id.bustype;
-                ui_dev.id.vendor = id.vendor;
-                ui_dev.id.product = id.product;
-                ui_dev.id.version = id.version;
-            }
-            uint8_t *bits = NULL;
-            ssize_t bits_size = 0;
-            int res, j, k;
-            while (1) {
-                res = ioctl(fd, EVIOCGBIT(EV_KEY, bits_size), bits);
-                if (res < bits_size)
-                    break;
-                bits_size = res + 16;
-                bits = (uint8_t *) realloc(bits, bits_size * 2);
-            }
-            for (j = 0; j < res; j++) {
-                for (k = 0; k < 8; k++)
-                    if (bits[j] & 1 << k) {
-                        if (j * 8 + k == BTN_TOUCH || j * 8 + k == BTN_TOOL_FINGER)
-                            continue;
-                        ioctl(nowfd, UI_SET_KEYBIT, j * 8 + k);
-                    }
-            }
-            free(bits);
-            close(fd);
-        }
         ui_dev.absmin[ABS_MT_POSITION_X] = 0;
-        ui_dev.absmax[ABS_MT_POSITION_X] = screenX;
+        ui_dev.absmax[ABS_MT_POSITION_X] = (int)s_digitizerMaxX;
         ui_dev.absmin[ABS_MT_POSITION_Y] = 0;
-        ui_dev.absmax[ABS_MT_POSITION_Y] = screenY;
+        ui_dev.absmax[ABS_MT_POSITION_Y] = (int)s_digitizerMaxY;
         ui_dev.absmin[ABS_X] = 0;
-        ui_dev.absmax[ABS_X] = screenX;
+        ui_dev.absmax[ABS_X] = (int)s_digitizerMaxX;
         ui_dev.absmin[ABS_Y] = 0;
-        ui_dev.absmax[ABS_Y] = screenY;
+        ui_dev.absmax[ABS_Y] = (int)s_digitizerMaxY;
         ui_dev.absmin[ABS_MT_TRACKING_ID] = 0;
         ui_dev.absmax[ABS_MT_TRACKING_ID] = 65535;
         write(nowfd, &ui_dev, sizeof(ui_dev));
@@ -385,82 +364,51 @@ bool Touch_Init(int w, int h, uint32_t orientation_, bool readOnly) {
             return false;
         }
     }
+
     Touch_initialized = true;
     Touch_readOnly = readOnly;
 
     pthread_t t;
     for (i = 0; i < fdNum; i++) {
         targF[i].fdNum = i;
-        targF[i].S2TX = (float) screenX / (float) absX[i].maximum;
-        targF[i].S2TY = (float) screenY / (float) absY[i].maximum;
+        targF[i].maxRawX = (float)absX[i].maximum;
+        targF[i].maxRawY = (float)absY[i].maximum;
         pthread_create(&t, NULL, TypeA, &targF[i]);
     }
 
-    s_touchScreenX = screenX;
-    s_touchScreenY = screenY;
-
-    ::screenWidth = w;
-    ::screenHeight = h; 
+    ::screenWidth = (float)w;
+    ::screenHeight = (float)h; 
     ::orientation = orientation_;
-    if (::orientation == 1 || ::orientation == 3) {
-        ::scale_x = (float) screenX / (float)h;
-        ::scale_y = (float) screenY / (float)w;
-    } else {
-        ::scale_x = (float) screenX / (float)w;
-        ::scale_y = (float) screenY / (float)h;    
-    }
 
-    system("chmod 000 -R /proc/bus/input/*");
+    system("chmod 000 -R /proc/bus/input/* 2>/dev/null");
     return true;
 }
 
 void UpdateScreenData(int w, int h, uint32_t orientation_) {
-    ::screenWidth = w;
-    ::screenHeight = h; 
+    ::screenWidth = (float)w;
+    ::screenHeight = (float)h; 
     ::orientation = orientation_;
-    if (s_touchScreenX > 0 && s_touchScreenY > 0) {
-        if (::orientation == 1 || ::orientation == 3) {
-            ::scale_x = (float) s_touchScreenX / (float)h;
-            ::scale_y = (float) s_touchScreenY / (float)w;
-        } else {
-            ::scale_x = (float) s_touchScreenX / (float)w;
-            ::scale_y = (float) s_touchScreenY / (float)h;    
-        }
-    }
 }
 
-static bool checkDeviceIsTouch(int fd) {
-    uint8_t *bits = NULL;
-    ssize_t bits_size = 0;
-    int res, j, k;
-    bool itmp = false, itmp2 = false, itmp3 = false;
-    struct input_absinfo abs{};
-    while (true) {
-        res = ioctl(fd, EVIOCGBIT(EV_ABS, bits_size), bits);
-        if (res < bits_size)
-            break;
-        bits_size = res + 16;
-        bits = (uint8_t *) realloc(bits, bits_size * 2);
+static bool checkDeviceIsTouch(int fd, float &outMaxX, float &outMaxY) {
+    uint8_t propBits[(INPUT_PROP_MAX + 7) / 8]{0};
+    bool hasDirect = false;
+    if (ioctl(fd, EVIOCGPROP(sizeof(propBits)), propBits) >= 0) {
+        if (propBits[INPUT_PROP_DIRECT / 8] & (1 << (INPUT_PROP_DIRECT % 8))) {
+            hasDirect = true;
+        }
     }
-    for (j = 0; j < res; j++) {
-        for (k = 0; k < 8; k++)
-            if (bits[j] & 1 << k && ioctl(fd, EVIOCGABS(j * 8 + k), &abs) == 0) {
-                if (j * 8 + k == ABS_MT_SLOT) {
-                    itmp = true;
-                    continue;
-                }
-                if (j * 8 + k == ABS_MT_POSITION_X) {
-                    itmp2 = true;
-                    continue;
-                }
-                if (j * 8 + k == ABS_MT_POSITION_Y) {
-                    itmp3 = true;
-                    continue;
-                }
-            }
+
+    struct input_absinfo absX{}, absY{};
+    bool hasX = (ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &absX) == 0 && absX.maximum > 400);
+    bool hasY = (ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &absY) == 0 && absY.maximum > 400);
+
+    if (hasX && hasY) {
+        outMaxX = (float)absX.maximum;
+        outMaxY = (float)absY.maximum;
+        return true;
     }
-    free(bits);
-    return itmp && itmp2 && itmp3;
+    return false;
 }
 
 void Touch_Close() {
@@ -512,8 +460,8 @@ void Touch_Down(float xt, float yt) {
     }
     touchObj &touch = Finger[0][9];
     touch.id = 19;
-    touch.x = (int) (x * ::scale_x);
-    touch.y = (int) (y * ::scale_y);        
+    touch.x = (int)(x * (s_digitizerMaxX / (screenWidth > 0.0f ? screenWidth : 1.0f)));
+    touch.y = (int)(y * (s_digitizerMaxY / (screenHeight > 0.0f ? screenHeight : 1.0f)));        
     touch.isDown = true;
     Upload();
 }

@@ -260,15 +260,15 @@ namespace ui::menu {
             pill_needs_reposition = true;
         }
 
-        // FLOATING CIRCULAR LOGO BUTTON — FULLY DRAGGABLE
-        // Tap = Toggle Menu | Drag = Relocate anywhere on screen
-        const float logoRadius = 45.0f; // 90px diameter, comfortable mobile fingertip target
+        // DYNAMIC RESPONSIVE UI SCALING — AGNOSTIC ACROSS ALL RESOLUTIONS & ASPECT RATIOS
+        const float ui_scale = std::max(0.72f, std::min(realH / 1080.0f, 1.45f));
+        const float logoRadius = 44.0f * ui_scale;
         const float logoDiameter = logoRadius * 2.0f;
-        const float margin = 12.0f;
+        const float margin = 12.0f * ui_scale;
 
         static ImVec2 s_circle_pos = ImVec2(-1.0f, -1.0f);
         if (s_circle_pos.x < 0.0f || pill_needs_reposition) {
-            s_circle_pos = ImVec2((realW > 1000.0f) ? 80.0f : 50.0f, (realH > 600.0f) ? 140.0f : 90.0f);
+            s_circle_pos = ImVec2(margin + logoRadius + 20.0f * ui_scale, realH * 0.25f);
             pill_needs_reposition = false;
         }
 
@@ -373,10 +373,9 @@ namespace ui::menu {
             return;
         }
 
-        // MAIN MENU: DESIGN 08 (ELECTRIC ORCHID GLASS)
-        // Expanded horizontal width so labels have generous breathing space
-        const float winW = ImMin(820.0f, realW * 0.94f);
-        const float winH = ImMin(460.0f, realH * 0.94f);
+        // MAIN MENU: DYNAMIC UNIVERSAL SIZING (720p, 1080p, 1440p, Foldables, Tablets)
+        const float winW = std::max(500.0f * ui_scale, std::min(860.0f * ui_scale, realW * 0.92f));
+        const float winH = std::max(360.0f * ui_scale, std::min(500.0f * ui_scale, realH * 0.92f));
 
         static ImVec2 s_menu_pos = ImVec2(-1.0f, -1.0f);
         if (s_menu_pos.x < 0.0f || menu_needs_reposition) {
