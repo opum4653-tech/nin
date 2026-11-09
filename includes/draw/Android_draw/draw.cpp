@@ -198,7 +198,7 @@ void drawBegin() {
         LOG_INFO("Display orientation transition detected: %u -> %u (Dims: %dx%d)",
                  ::orientation, displayInfo.orientation, displayInfo.width, displayInfo.height);
         ::orientation = displayInfo.orientation;
-        UpdateScreenData(native_window_screen_x, native_window_screen_y, displayInfo.orientation);
+        UpdateScreenData(displayInfo.width, displayInfo.height, displayInfo.orientation);
     }
     
     #ifdef USE_OPENGL

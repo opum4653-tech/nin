@@ -323,7 +323,7 @@ namespace ui::menu {
             if (active && !s_is_dragging) {
                 float dx = mouse.x - s_touch_start_pos.x;
                 float dy = mouse.y - s_touch_start_pos.y;
-                if ((dx * dx + dy * dy) > (20.0f * 20.0f)) {
+                if ((dx * dx + dy * dy) > (14.0f * 14.0f)) {
                     s_is_dragging = true;
                     s_moved_drag = true;
                 }
@@ -337,40 +337,21 @@ namespace ui::menu {
                 s_circle_pos.y = std::max(margin + logoRadius, std::min(s_circle_pos.y, realH - logoRadius - margin));
             }
 
-            // Direct geometric tap fallback (in case InvisibleButton is missed by low polling rate)
-            bool geo_tap = false;
-            if (io.MouseDown[0]) {
-                float cdx = mouse.x - center.x;
-                float cdy = mouse.y - center.y;
-                if (!s_is_touch_down && (cdx * cdx + cdy * cdy <= (logoRadius + 15.0f) * (logoRadius + 15.0f))) {
-                    s_is_touch_down = true;
-                    s_touch_start_pos = mouse;
-                    s_drag_offset = ImVec2(mouse.x - s_circle_pos.x, mouse.y - s_circle_pos.y);
-                    s_moved_drag = false;
-                }
-            } else {
-                if (s_is_touch_down) {
-                    float cdx = mouse.x - s_touch_start_pos.x;
-                    float cdy = mouse.y - s_touch_start_pos.y;
-                    if (!s_moved_drag && (cdx * cdx + cdy * cdy <= (25.0f * 25.0f))) {
-                        geo_tap = true;
-                    }
-                    s_is_touch_down = false;
-                }
-            }
+            // Clean single-event tap toggle with 0.3s cooldown debounce
+            static double s_last_toggle_time = 0.0;
+            double cur_time = ImGui::GetTime();
 
-            // Triple-redundant tap detection: clicked OR deactivated without drag OR direct geometric tap
-            if (clicked || geo_tap || (deactivated && !s_moved_drag)) {
-                menu_open = !menu_open;
-                LOG_INFO("Floating Logo CLICKED -> menu_open is now %s (clicked=%d, geo=%d, deact=%d)",
-                         menu_open ? "TRUE" : "FALSE", clicked, geo_tap, deactivated);
+            if (clicked || (deactivated && !s_moved_drag)) {
+                if (cur_time - s_last_toggle_time > 0.30) {
+                    menu_open = !menu_open;
+                    s_last_toggle_time = cur_time;
+                    LOG_INFO("Floating Logo TOGGLED -> menu_open=%s", menu_open ? "TRUE" : "FALSE");
+                }
                 s_moved_drag = false;
                 s_is_dragging = false;
-                s_is_touch_down = false;
             } else if (deactivated) {
                 s_moved_drag = false;
                 s_is_dragging = false;
-                s_is_touch_down = false;
             }
 
             // Draw circular emblem with spinning orbital arcs
@@ -397,23 +378,17 @@ namespace ui::menu {
         const float winW = ImMin(820.0f, realW * 0.94f);
         const float winH = ImMin(460.0f, realH * 0.94f);
 
-        if (menu_needs_reposition) {
-            // Re-center and resize cleanly upon screen rotation
-            ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Always);
-            ImGui::SetNextWindowPos(
-                ImVec2(realW * 0.5f, realH * 0.5f),
-                ImGuiCond_Always,
-                ImVec2(0.5f, 0.5f)
-            );
+        static ImVec2 s_menu_pos = ImVec2(-1.0f, -1.0f);
+        if (s_menu_pos.x < 0.0f || menu_needs_reposition) {
+            s_menu_pos = ImVec2((realW - winW) * 0.5f, (realH - winH) * 0.5f);
             menu_needs_reposition = false;
-        } else {
-            ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Once);
-            ImGui::SetNextWindowPos(
-                ImVec2(realW * 0.5f, realH * 0.5f),
-                ImGuiCond_Once,
-                ImVec2(0.5f, 0.5f)
-            );
         }
+
+        s_menu_pos.x = std::max(0.0f, std::min(s_menu_pos.x, realW - winW));
+        s_menu_pos.y = std::max(0.0f, std::min(s_menu_pos.y, realH - winH));
+
+        ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(s_menu_pos, ImGuiCond_Always);
 
         // Precise styling for Electric Orchid Glass + Complete Scrollbar Hiding
         ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.055f, 0.047f, 0.078f, 0.98f));
@@ -469,12 +444,10 @@ namespace ui::menu {
             ImGui::SetCursorScreenPos(headerP0);
             ImGui::InvisibleButton("##HeaderDragBar", ImVec2(winSize.x - closeBtnSize - 16.0f, headerH));
             if (ImGui::IsItemActive()) {
-                ImVec2 curPos = ImGui::GetWindowPos();
-                curPos.x += io.MouseDelta.x;
-                curPos.y += io.MouseDelta.y;
-                curPos.x = std::max(0.0f, std::min(curPos.x, realW - winSize.x));
-                curPos.y = std::max(0.0f, std::min(curPos.y, realH - winSize.y));
-                ImGui::SetWindowPos("##NIN_MAIN_PANEL", curPos);
+                s_menu_pos.x += io.MouseDelta.x;
+                s_menu_pos.y += io.MouseDelta.y;
+                s_menu_pos.x = std::max(0.0f, std::min(s_menu_pos.x, realW - winW));
+                s_menu_pos.y = std::max(0.0f, std::min(s_menu_pos.y, realH - winH));
             }
 
             // Header BAM PASE: Circular Emblem + Name "NINMODS"
