@@ -278,8 +278,9 @@ namespace ui::menu {
 
         static bool s_is_touch_down = false;
         static ImVec2 s_touch_start_pos = ImVec2(0, 0);
-        static bool s_drag_threshold_exceeded = false;
+        static ImVec2 s_drag_offset = ImVec2(0, 0);
         static bool s_is_dragging = false;
+        static bool s_moved_drag = false;
 
         // Window for floating circular logo
         ImVec2 winPos = ImVec2(s_circle_pos.x - logoRadius, s_circle_pos.y - logoRadius);
@@ -303,6 +304,7 @@ namespace ui::menu {
         if (ImGui::Begin("##NINMODS_FLOATING_CIRCLE", nullptr, circleFlags)) {
             ImDrawList* dl = ImGui::GetWindowDrawList();
             ImVec2 center = s_circle_pos;
+            const ImVec2 mouse = io.MousePos;
 
             // 1. Registered Dear ImGui button target covering the full circle window
             ImGui::SetCursorScreenPos(winPos);
@@ -310,45 +312,47 @@ namespace ui::menu {
             const bool active  = ImGui::IsItemActive();
             const bool deactivated = ImGui::IsItemDeactivated();
 
-            // 2. Drag & Tap Tracking via ImGui Item state + Direct Geometric Fallback
+            // 2. Drag & Tap Tracking via Absolute Finger Offset
             if (ImGui::IsItemActivated()) {
-                s_touch_start_pos = io.MousePos;
-                s_drag_threshold_exceeded = false;
+                s_touch_start_pos = mouse;
+                s_drag_offset = ImVec2(mouse.x - s_circle_pos.x, mouse.y - s_circle_pos.y);
                 s_is_dragging = false;
+                s_moved_drag = false;
             }
 
-            if (active) {
-                float dx = io.MousePos.x - s_touch_start_pos.x;
-                float dy = io.MousePos.y - s_touch_start_pos.y;
-                if (!s_drag_threshold_exceeded && (dx * dx + dy * dy) > (25.0f * 25.0f)) {
-                    s_drag_threshold_exceeded = true;
+            if (active && !s_is_dragging) {
+                float dx = mouse.x - s_touch_start_pos.x;
+                float dy = mouse.y - s_touch_start_pos.y;
+                if ((dx * dx + dy * dy) > (20.0f * 20.0f)) {
                     s_is_dragging = true;
+                    s_moved_drag = true;
                 }
+            }
 
-                if (s_is_dragging) {
-                    s_circle_pos.x += io.MouseDelta.x;
-                    s_circle_pos.y += io.MouseDelta.y;
+            if (s_is_dragging && active) {
+                s_circle_pos.x = mouse.x - s_drag_offset.x;
+                s_circle_pos.y = mouse.y - s_drag_offset.y;
 
-                    s_circle_pos.x = std::max(margin + logoRadius, std::min(s_circle_pos.x, realW - logoRadius - margin));
-                    s_circle_pos.y = std::max(margin + logoRadius, std::min(s_circle_pos.y, realH - logoRadius - margin));
-                }
+                s_circle_pos.x = std::max(margin + logoRadius, std::min(s_circle_pos.x, realW - logoRadius - margin));
+                s_circle_pos.y = std::max(margin + logoRadius, std::min(s_circle_pos.y, realH - logoRadius - margin));
             }
 
             // Direct geometric tap fallback (in case InvisibleButton is missed by low polling rate)
             bool geo_tap = false;
             if (io.MouseDown[0]) {
-                float cdx = io.MousePos.x - center.x;
-                float cdy = io.MousePos.y - center.y;
+                float cdx = mouse.x - center.x;
+                float cdy = mouse.y - center.y;
                 if (!s_is_touch_down && (cdx * cdx + cdy * cdy <= (logoRadius + 15.0f) * (logoRadius + 15.0f))) {
                     s_is_touch_down = true;
-                    s_touch_start_pos = io.MousePos;
-                    s_drag_threshold_exceeded = false;
+                    s_touch_start_pos = mouse;
+                    s_drag_offset = ImVec2(mouse.x - s_circle_pos.x, mouse.y - s_circle_pos.y);
+                    s_moved_drag = false;
                 }
             } else {
                 if (s_is_touch_down) {
-                    float cdx = io.MousePos.x - s_touch_start_pos.x;
-                    float cdy = io.MousePos.y - s_touch_start_pos.y;
-                    if (!s_drag_threshold_exceeded && (cdx * cdx + cdy * cdy <= (25.0f * 25.0f))) {
+                    float cdx = mouse.x - s_touch_start_pos.x;
+                    float cdy = mouse.y - s_touch_start_pos.y;
+                    if (!s_moved_drag && (cdx * cdx + cdy * cdy <= (25.0f * 25.0f))) {
                         geo_tap = true;
                     }
                     s_is_touch_down = false;
@@ -356,16 +360,15 @@ namespace ui::menu {
             }
 
             // Triple-redundant tap detection: clicked OR deactivated without drag OR direct geometric tap
-            if (clicked || geo_tap || (deactivated && !s_drag_threshold_exceeded)) {
+            if (clicked || geo_tap || (deactivated && !s_moved_drag)) {
                 menu_open = !menu_open;
-                menu_needs_reposition = true;
                 LOG_INFO("Floating Logo CLICKED -> menu_open is now %s (clicked=%d, geo=%d, deact=%d)",
                          menu_open ? "TRUE" : "FALSE", clicked, geo_tap, deactivated);
-                s_drag_threshold_exceeded = false;
+                s_moved_drag = false;
                 s_is_dragging = false;
                 s_is_touch_down = false;
             } else if (deactivated) {
-                s_drag_threshold_exceeded = false;
+                s_moved_drag = false;
                 s_is_dragging = false;
                 s_is_touch_down = false;
             }
@@ -404,10 +407,10 @@ namespace ui::menu {
             );
             menu_needs_reposition = false;
         } else {
-            ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Once);
             ImGui::SetNextWindowPos(
                 ImVec2(realW * 0.5f, realH * 0.5f),
-                ImGuiCond_FirstUseEver,
+                ImGuiCond_Once,
                 ImVec2(0.5f, 0.5f)
             );
         }
@@ -461,6 +464,19 @@ namespace ui::menu {
             dl->AddRectFilled(headerP0, headerP1, theme_orchid::ColHeaderBg, 12.0f, ImDrawFlags_RoundCornersTop);
             dl->AddLine(ImVec2(winPos.x, winPos.y + headerH), ImVec2(winPos.x + winSize.x, winPos.y + headerH), IM_COL32(54, 38, 76, 255), 1.0f);
 
+            // Header Drag Handle: Allows moving the menu anywhere on screen by dragging the header
+            const float closeBtnSize = 36.0f;
+            ImGui::SetCursorScreenPos(headerP0);
+            ImGui::InvisibleButton("##HeaderDragBar", ImVec2(winSize.x - closeBtnSize - 16.0f, headerH));
+            if (ImGui::IsItemActive()) {
+                ImVec2 curPos = ImGui::GetWindowPos();
+                curPos.x += io.MouseDelta.x;
+                curPos.y += io.MouseDelta.y;
+                curPos.x = std::max(0.0f, std::min(curPos.x, realW - winSize.x));
+                curPos.y = std::max(0.0f, std::min(curPos.y, realH - winSize.y));
+                ImGui::SetWindowPos("##NIN_MAIN_PANEL", curPos);
+            }
+
             // Header BAM PASE: Circular Emblem + Name "NINMODS"
             float logoX = winPos.x + 22.0f;
             float headerCY = winPos.y + headerH * 0.5f;
@@ -468,7 +484,6 @@ namespace ui::menu {
             dl->AddText(ImVec2(logoX + 20.0f, headerCY - 9.0f), theme_orchid::ColWhite, "NINMODS");
 
             // Header DAN PASE: CLOSE ICON BUTTON (JUST BUTTON, NO BACKGROUND, NO BORDER!)
-            const float closeBtnSize = 36.0f;
             ImVec2 closePos = ImVec2(winPos.x + winSize.x - closeBtnSize - 8.0f, winPos.y + (headerH - closeBtnSize) * 0.5f);
             ImGui::SetCursorScreenPos(closePos);
 
