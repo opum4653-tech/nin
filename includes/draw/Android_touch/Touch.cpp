@@ -16,6 +16,13 @@
 #define UNGRAB 0
 #define GRAB 1
 
+#ifndef INPUT_PROP_DIRECT
+#define INPUT_PROP_DIRECT 0x01
+#endif
+#ifndef INPUT_PROP_MAX
+#define INPUT_PROP_MAX 0x1f
+#endif
+
 bool other_touch = false;
 
 static uint32_t orientation = 0;
