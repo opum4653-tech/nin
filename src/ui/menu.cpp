@@ -46,18 +46,48 @@ enum EIconType {
     ICON_POWER
 };
 
-static void DrawLogoFlame(ImDrawList* dl, ImVec2 center, float size, ImU32 col) {
-    float hs = size * 0.5f;
-    ImVec2 pts[6] = {
-        ImVec2(center.x, center.y - hs),
-        ImVec2(center.x + hs * 0.90f, center.y - hs * 0.30f),
-        ImVec2(center.x + hs * 0.70f, center.y + hs * 0.60f),
-        ImVec2(center.x, center.y + hs),
-        ImVec2(center.x - hs * 0.70f, center.y + hs * 0.60f),
-        ImVec2(center.x - hs * 0.90f, center.y - hs * 0.30f)
-    };
-    dl->AddConvexPolyFilled(pts, 6, col);
-    dl->AddPolyline(pts, 6, IM_COL32(255, 255, 255, 220), ImDrawFlags_Closed, 1.2f);
+static void DrawCircularLogo(ImDrawList* dl, ImVec2 center, float radius, bool spinning = false) {
+    ImU32 colPrimary      = theme_orchid::ColPrimary;       // IM_COL32(225, 0, 152, 255)
+    ImU32 colPrimaryLight = theme_orchid::ColPrimaryLight;  // IM_COL32(255, 90, 205, 255)
+    ImU32 colDarkBg       = IM_COL32(18, 14, 26, 245);
+    ImU32 colWhite        = IM_COL32(255, 255, 255, 255);
+    ImU32 colCyan         = IM_COL32(0, 240, 255, 200);
+
+    float t = (float)ImGui::GetTime();
+    float pulse = 0.5f + 0.5f * sinf(t * 3.0f);
+
+    // 1. Smooth Anti-Aliased Outer Glow
+    dl->AddCircleFilled(center, radius + 8.0f * pulse, (colPrimary & 0x00FFFFFF) | ((int)(45 * pulse) << 24), 48);
+    dl->AddCircleFilled(center, radius + 4.0f, (colPrimary & 0x00FFFFFF) | ((int)(85 * pulse) << 24), 48);
+
+    // 2. Base Dark Glass Disc
+    dl->AddCircleFilled(center, radius, colDarkBg, 64);
+
+    // 3. Crisp Concentric Metallic/Neon Rings
+    dl->AddCircle(center, radius, colPrimary, 64, 2.5f);
+    dl->AddCircle(center, radius - 2.5f, (colPrimaryLight & 0x00FFFFFF) | (180 << 24), 64, 1.2f);
+    dl->AddCircle(center, radius * 0.76f, (colPrimary & 0x00FFFFFF) | (140 << 24), 48, 1.2f);
+
+    // 4. Rotating Orbital Arcs (Cyber Feel)
+    float spinSpeed = spinning ? 3.5f : 1.8f;
+    float ang = t * spinSpeed;
+    for (int i = 0; i < 4; i++) {
+        float a1 = ang + i * (3.14159265f * 0.5f);
+        float a2 = a1 + 0.45f;
+        ImVec2 pa(center.x + cosf(a1) * (radius - 4.5f), center.y + sinf(a1) * (radius - 4.5f));
+        ImVec2 pb(center.x + cosf(a2) * (radius - 4.5f), center.y + sinf(a2) * (radius - 4.5f));
+        dl->AddLine(pa, pb, (i % 2 == 0) ? colPrimaryLight : colCyan, 2.2f);
+    }
+
+    // 5. Center Stylized "N" Letter with drop shadow
+    ImFont* font = ImGui::GetFont();
+    const char* txt = "N";
+    float fontSize = radius * 1.15f;
+    ImVec2 tsz = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, txt);
+    ImVec2 txtPos = ImVec2(center.x - tsz.x * 0.5f, center.y - tsz.y * 0.5f);
+
+    dl->AddText(font, fontSize, ImVec2(txtPos.x + 1.2f, txtPos.y + 1.2f), IM_COL32(0, 0, 0, 180), txt);
+    dl->AddText(font, fontSize, txtPos, colWhite, txt);
 }
 
 static void DrawVectorIcon(ImDrawList* dl, EIconType type, ImVec2 center, float size, ImU32 col) {
@@ -230,99 +260,111 @@ namespace ui::menu {
             pill_needs_reposition = true;
         }
 
-        // FLOATING RE-OPEN PILL (SHOWN ONLY WHEN MENU IS MINIMIZED)
-        if (!menu_open) {
-            const float pillW = 136.0f;
-            const float pillH = 44.0f;
-            const float minX = 10.0f;
-            const float maxX = (realW - pillW - 10.0f > minX) ? (realW - pillW - 10.0f) : minX;
-            const float minY = 10.0f;
-            const float maxY = (realH - pillH - 10.0f > minY) ? (realH - pillH - 10.0f) : minY;
+        // FLOATING CIRCULAR LOGO BUTTON — FULLY DRAGGABLE
+        // Tap = Toggle Menu | Drag = Relocate anywhere on screen
+        const float logoRadius = 32.0f; // 64px diameter, clean mobile fingertip target
+        const float logoDiameter = logoRadius * 2.0f;
+        const float margin = 12.0f;
 
-            float pillInitX = (realW > 1000.0f) ? 60.0f : 30.0f;
-            float pillInitY = 32.0f;
+        static ImVec2 s_circle_pos = ImVec2(-1.0f, -1.0f);
+        if (s_circle_pos.x < 0.0f || pill_needs_reposition) {
+            s_circle_pos = ImVec2((realW > 1000.0f) ? 70.0f : 45.0f, (realH > 600.0f) ? 140.0f : 80.0f);
+            pill_needs_reposition = false;
+        }
 
-            static ImVec2 s_pill_pos = ImVec2(-1, -1);
-            if (s_pill_pos.x < 0.0f || pill_needs_reposition) {
-                s_pill_pos = ImVec2(pillInitX, pillInitY);
-                pill_needs_reposition = false;
-            }
+        // Viewport clamping
+        s_circle_pos.x = std::max(margin + logoRadius, std::min(s_circle_pos.x, realW - logoRadius - margin));
+        s_circle_pos.y = std::max(margin + logoRadius, std::min(s_circle_pos.y, realH - logoRadius - margin));
 
-            // Continuous hard clamp within screen bounds
-            if (s_pill_pos.x < minX) s_pill_pos.x = minX;
-            if (s_pill_pos.x > maxX) s_pill_pos.x = maxX;
-            if (s_pill_pos.y < minY) s_pill_pos.y = minY;
-            if (s_pill_pos.y > maxY) s_pill_pos.y = maxY;
+        static bool s_is_touch_down = false;
+        static ImVec2 s_touch_start_pos = ImVec2(0, 0);
+        static bool s_drag_threshold_exceeded = false;
+        static bool s_is_dragging = false;
 
-            ImGui::SetNextWindowPos(s_pill_pos, ImGuiCond_Always);
-            ImGui::SetNextWindowSize(ImVec2(pillW, pillH));
+        // Window for floating circular logo
+        ImVec2 winPos = ImVec2(s_circle_pos.x - logoRadius - 8.0f, s_circle_pos.y - logoRadius - 8.0f);
+        ImVec2 winSize = ImVec2(logoDiameter + 16.0f, logoDiameter + 16.0f);
 
-            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.082f, 0.063f, 0.122f, 0.95f));
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.882f, 0.000f, 0.596f, 0.90f));
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 22.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.5f);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::SetNextWindowPos(winPos, ImGuiCond_Always);
+        ImGui::SetNextWindowSize(winSize, ImGuiCond_Always);
 
-            ImGuiWindowFlags pillFlags = ImGuiWindowFlags_NoTitleBar |
-                                         ImGuiWindowFlags_NoResize |
-                                         ImGuiWindowFlags_NoScrollbar |
-                                         ImGuiWindowFlags_NoMove;
+        ImGuiWindowFlags circleFlags = ImGuiWindowFlags_NoTitleBar |
+                                       ImGuiWindowFlags_NoResize |
+                                       ImGuiWindowFlags_NoCollapse |
+                                       ImGuiWindowFlags_NoScrollbar |
+                                       ImGuiWindowFlags_NoScrollWithMouse |
+                                       ImGuiWindowFlags_NoSavedSettings |
+                                       ImGuiWindowFlags_NoBackground |
+                                       ImGuiWindowFlags_NoMove |
+                                       ImGuiWindowFlags_NoFocusOnAppearing |
+                                       ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-            if (ImGui::Begin("##NIN_MINI", nullptr, pillFlags)) {
-                bool clicked = ImGui::InvisibleButton("##ReOpenPill", ImVec2(pillW, pillH));
+        if (ImGui::Begin("##NINMODS_FLOATING_CIRCLE", nullptr, circleFlags)) {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            ImVec2 center = s_circle_pos;
 
-                static ImVec2 s_touch_start = ImVec2(0, 0);
-                static bool s_is_dragging = false;
-                static bool s_has_dragged = false;
+            // Direct geometric hit-test & touch handling (never drops clicks!)
+            if (io.MouseDown[0]) {
+                float dx = io.MousePos.x - center.x;
+                float dy = io.MousePos.y - center.y;
+                float dist_sq = dx * dx + dy * dy;
 
-                if (ImGui::IsItemActivated()) {
-                    s_touch_start = io.MousePos;
-                    s_is_dragging = false;
-                    s_has_dragged = false;
-                }
+                float hit_radius = logoRadius + 12.0f; // Generous 44px hit-radius for finger pads
 
-                if (ImGui::IsItemActive()) {
-                    float dx = io.MousePos.x - s_touch_start.x;
-                    float dy = io.MousePos.y - s_touch_start.y;
-                    // Mobile touchscreen drag threshold: 45 pixels
-                    if (!s_is_dragging && (dx * dx + dy * dy) > (45.0f * 45.0f)) {
+                if (!s_is_touch_down) {
+                    if (dist_sq <= hit_radius * hit_radius) {
+                        s_is_touch_down = true;
+                        s_touch_start_pos = io.MousePos;
+                        s_drag_threshold_exceeded = false;
+                        s_is_dragging = false;
+                    }
+                } else {
+                    float mx = io.MousePos.x - s_touch_start_pos.x;
+                    float my = io.MousePos.y - s_touch_start_pos.y;
+                    float move_dist_sq = mx * mx + my * my;
+
+                    if (!s_drag_threshold_exceeded && move_dist_sq > (18.0f * 18.0f)) {
+                        s_drag_threshold_exceeded = true;
                         s_is_dragging = true;
-                        s_has_dragged = true;
                     }
 
                     if (s_is_dragging) {
-                        s_pill_pos.x += io.MouseDelta.x;
-                        s_pill_pos.y += io.MouseDelta.y;
+                        s_circle_pos.x += io.MouseDelta.x;
+                        s_circle_pos.y += io.MouseDelta.y;
 
-                        if (s_pill_pos.x < minX) s_pill_pos.x = minX;
-                        if (s_pill_pos.x > maxX) s_pill_pos.x = maxX;
-                        if (s_pill_pos.y < minY) s_pill_pos.y = minY;
-                        if (s_pill_pos.y > maxY) s_pill_pos.y = maxY;
+                        s_circle_pos.x = std::max(margin + logoRadius, std::min(s_circle_pos.x, realW - logoRadius - margin));
+                        s_circle_pos.y = std::max(margin + logoRadius, std::min(s_circle_pos.y, realH - logoRadius - margin));
                     }
                 }
-
-                if (clicked || (ImGui::IsItemDeactivated() && !s_has_dragged)) {
-                    LOG_INFO("Floating pill tapped -> Opening main menu! (Pill pos: %.1f, %.1f)", s_pill_pos.x, s_pill_pos.y);
-                    menu_open = true; // Clean single tap: open menu
-                    menu_needs_reposition = true;
+            } else {
+                if (s_is_touch_down) {
+                    if (!s_drag_threshold_exceeded) {
+                        // 100% RELIABLE TAP DETECTION
+                        menu_open = !menu_open;
+                        menu_needs_reposition = true;
+                        LOG_INFO("Floating Logo TAPPED -> menu_open = %s (pos: %.1f, %.1f)", menu_open ? "TRUE" : "FALSE", s_circle_pos.x, s_circle_pos.y);
+                    }
+                    s_is_touch_down = false;
+                    s_drag_threshold_exceeded = false;
                     s_is_dragging = false;
-                    s_has_dragged = false;
-                } else if (ImGui::IsItemDeactivated()) {
-                    s_is_dragging = false;
-                    s_has_dragged = false;
                 }
-
-                ImDrawList* dl = ImGui::GetWindowDrawList();
-                ImVec2 p0 = ImGui::GetItemRectMin();
-                ImVec2 p1 = ImGui::GetItemRectMax();
-                float cy = (p0.y + p1.y) * 0.5f;
-
-                DrawLogoFlame(dl, ImVec2(p0.x + 20, cy), 16.0f, theme_orchid::ColPrimary);
-                dl->AddText(ImVec2(p0.x + 36, cy - 8), theme_orchid::ColWhite, "NINMODS");
             }
-            ImGui::End();
-            ImGui::PopStyleVar(3);
-            ImGui::PopStyleColor(2);
+
+            // Draw circular emblem with spinning orbital arcs
+            DrawCircularLogo(dl, center, logoRadius, s_is_dragging);
+
+            // Real-time daemon connection status dot
+            bool connected = (proc::pid > 0 && proc::lib > 0);
+            ImU32 stCol = connected ? IM_COL32(0, 240, 140, 255) : IM_COL32(255, 90, 90, 255);
+            ImVec2 stDot(center.x + logoRadius * 0.68f, center.y - logoRadius * 0.68f);
+            dl->AddCircleFilled(stDot, 6.0f, (stCol & 0x00FFFFFF) | (90 << 24));
+            dl->AddCircleFilled(stDot, 4.0f, (stCol & 0x00FFFFFF) | (180 << 24));
+            dl->AddCircleFilled(stDot, 2.5f, stCol);
+        }
+        ImGui::End();
+
+        // If menu is minimized, done for this frame
+        if (!menu_open) {
             return;
         }
 
@@ -398,11 +440,11 @@ namespace ui::menu {
             dl->AddRectFilled(headerP0, headerP1, theme_orchid::ColHeaderBg, 12.0f, ImDrawFlags_RoundCornersTop);
             dl->AddLine(ImVec2(winPos.x, winPos.y + headerH), ImVec2(winPos.x + winSize.x, winPos.y + headerH), IM_COL32(54, 38, 76, 255), 1.0f);
 
-            // Header BAM PASE: Logo + Name "NINMODS"
+            // Header BAM PASE: Circular Emblem + Name "NINMODS"
             float logoX = winPos.x + 22.0f;
             float headerCY = winPos.y + headerH * 0.5f;
-            DrawLogoFlame(dl, ImVec2(logoX, headerCY), 18.0f, theme_orchid::ColPrimary);
-            dl->AddText(ImVec2(logoX + 16.0f, headerCY - 9.0f), theme_orchid::ColWhite, "NINMODS");
+            DrawCircularLogo(dl, ImVec2(logoX, headerCY), 13.0f, false);
+            dl->AddText(ImVec2(logoX + 20.0f, headerCY - 9.0f), theme_orchid::ColWhite, "NINMODS");
 
             // Header DAN PASE: CLOSE ICON BUTTON (JUST BUTTON, NO BACKGROUND, NO BORDER!)
             const float closeBtnSize = 36.0f;

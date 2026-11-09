@@ -209,73 +209,100 @@ static void *TypeA(void *arg) {
             }
             if (ie.code == SYN_REPORT) {
                 ImGuiIO &io = ImGui::GetIO();
-                bool anyDown = false;
-                int downE = -1;
-                int downF = -1;
-                for (int e = 0; e < fdNum; e++) {
-                    for (int f = 0; f < maxF; f++) {
-                        if (Finger[e][f].isDown) {
-                            anyDown = true;
-                            downE = e;
-                            downF = f;
-                            break;
-                        }
-                    }
-                    if (anyDown) break;
-                }
-
                 static bool s_wasDownLast = false;
-                if (anyDown) {
-                    float raw_x = (float)Finger[downE][downF].x;
-                    float raw_y = (float)Finger[downE][downF].y;
-                    float max_x = (touchMaxX > 0) ? (float)touchMaxX : ((screenWidth > 0) ? screenWidth : 1080.0f);
-                    float max_y = (touchMaxY > 0) ? (float)touchMaxY : ((screenHeight > 0) ? screenHeight : 2400.0f);
-                    float nx = raw_x / max_x;
-                    float ny = raw_y / max_y;
-                    if (nx < 0.0f) nx = 0.0f; if (nx > 1.0f) nx = 1.0f;
-                    if (ny < 0.0f) ny = 0.0f; if (ny > 1.0f) ny = 1.0f;
 
-                    float dispW = (io.DisplaySize.x > 0.0f) ? io.DisplaySize.x : ((screenWidth > screenHeight) ? screenWidth : screenHeight);
-                    float dispH = (io.DisplaySize.y > 0.0f) ? io.DisplaySize.y : ((screenWidth < screenHeight) ? screenWidth : screenHeight);
+                if (Finger[i][latest].isDown) {
+                    float raw_x = (float)Finger[i][latest].x;
+                    float raw_y = (float)Finger[i][latest].y;
+                    float xt = raw_x / scale_x;
+                    float yt = raw_y / scale_y;
 
-                    float x = 0.0f;
-                    float y = 0.0f;
-
+                    float x = 0.0f, y = 0.0f;
                     switch (orientation) {
-                        case 1: // Landscape (Rotated 90 deg CCW for Gaming)
-                            x = ny * dispW;
-                            y = (1.0f - nx) * dispH;
+                        case 1: // Landscape (90 deg CCW for standard mobile gaming)
+                            x = yt;
+                            y = screenHeight - xt;
                             break;
                         case 2: // Reverse Portrait (180 deg)
-                            x = (1.0f - nx) * dispW;
-                            y = (1.0f - ny) * dispH;
+                            x = screenHeight - xt;
+                            y = screenWidth - yt;
                             break;
                         case 3: // Reverse Landscape (270 deg CCW)
-                            x = (1.0f - ny) * dispW;
-                            y = nx * dispH;
+                            y = xt;
+                            x = screenWidth - yt;
                             break;
                         case 0: // Portrait
                         default:
-                            x = nx * dispW;
-                            y = ny * dispH;
+                            x = xt;
+                            y = yt;
                             break;
                     }
+
+                    if (x < 0.0f) x = 0.0f;
+                    if (x > screenWidth) x = screenWidth;
+                    if (y < 0.0f) y = 0.0f;
+                    if (y > screenHeight) y = screenHeight;
 
                     io.MousePos = ImVec2(x, y);
                     io.MouseDown[0] = true;
 
                     if (!s_wasDownLast) {
-                        LOG_INFO("Touch DOWN: raw=(%.0f, %.0f) -> screen=(%.1f, %.1f) [orient=%u, disp=%.0fx%.0f]",
-                                 raw_x, raw_y, x, y, orientation, dispW, dispH);
+                        LOG_INFO("Touch DOWN: slot=%d, raw=(%.0f, %.0f) -> screen=(%.1f, %.1f) [orient=%u, scr=%.0fx%.0f]",
+                                 latest, raw_x, raw_y, x, y, orientation, screenWidth, screenHeight);
                         s_wasDownLast = true;
                     }
                 } else {
-                    io.MouseDown[0] = false;
-                    if (s_wasDownLast) {
-                        LOG_INFO("Touch UP");
-                        s_wasDownLast = false;
+                    // Check if any other finger slot is currently down
+                    bool anyOtherDown = false;
+                    for (int f = 0; f < maxF; f++) {
+                        if (Finger[i][f].isDown) {
+                            anyOtherDown = true;
+                            float raw_x = (float)Finger[i][f].x;
+                            float raw_y = (float)Finger[i][f].y;
+                            float xt = raw_x / scale_x;
+                            float yt = raw_y / scale_y;
+
+                            float x = 0.0f, y = 0.0f;
+                            switch (orientation) {
+                                case 1:
+                                    x = yt;
+                                    y = screenHeight - xt;
+                                    break;
+                                case 2:
+                                    x = screenHeight - xt;
+                                    y = screenWidth - yt;
+                                    break;
+                                case 3:
+                                    y = xt;
+                                    x = screenWidth - yt;
+                                    break;
+                                case 0:
+                                default:
+                                    x = xt;
+                                    y = yt;
+                                    break;
+                            }
+
+                            if (x < 0.0f) x = 0.0f;
+                            if (x > screenWidth) x = screenWidth;
+                            if (y < 0.0f) y = 0.0f;
+                            if (y > screenHeight) y = screenHeight;
+
+                            io.MousePos = ImVec2(x, y);
+                            io.MouseDown[0] = true;
+                            break;
+                        }
+                    }
+
+                    if (!anyOtherDown) {
+                        io.MouseDown[0] = false;
+                        if (s_wasDownLast) {
+                            LOG_INFO("Touch UP (all fingers released)");
+                            s_wasDownLast = false;
+                        }
                     }
                 }
+
                 if (!Touch_readOnly) {
                     Upload();
                 }
