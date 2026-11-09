@@ -145,3 +145,20 @@ refer/nin/
      2. Server Backend Mirror: `app_backend/downloads/app-release.apk`
      3. Bundled Asset Fallback: `DriverLoader/app/src/main/assets/external/gemini-cli.zip`
 
+---
+
+## 7. Zero Local Build Policy — Strict GitHub Actions CI/CD Only
+
+> [!IMPORTANT]
+> **MANDATORY INVARIANT: NO LOCAL MACHINE COMPILATION**
+> - **আমাদের লোকাল কম্পিউটার দিয়ে কোনো কিছু বিল্ড করা যাবে না (Zero Local Builds):**
+>   - লোকাল পিসি/ওয়ার্কস্টেশনে NDK, CMake, বা Clang দিয়ে কোনো নেটিভ বাইনারি বা রিলিজ বিল্ড চালানো সম্পূর্ণভাবে নিষিদ্ধ ও অপ্রয়োজনীয়।
+>   - লোকাল কম্পিউটারে কোনো কম্পাইলার টুলচেইন ইনস্টল বা কনফিগার করার প্রয়োজন নেই।
+> - **বিল্ড সবসময় ১০০% GitHub Actions ক্লাউড CI/CD দিয়ে হবে (Always Build on GitHub):**
+>   - সবধরনের কম্পাইলেশন, অপ্টিমাইজেশন (LLVM strip), প্যাকেজিং এবং আর্টফ্যাক্ট তৈরি সম্পূর্ণ অটোমেটেডভাবে GitHub Actions-এর ক্লিন ভার্চুয়াল উবুন্টু রানারে (`ubuntu-latest` + NDK `r25c`) সম্পন্ন হবে।
+> - **স্ট্যান্ডার্ড ওয়ার্কফ্লো (Standard Workflow):**
+>   1. কোড এডিট বা চেঞ্জ করার পর লোকালি গিট কমিট করে সরাসরি রিমোট `main` ব্রাঞ্চে `git push` করতে হবে।
+>   2. পুশ করার সাথে সাথেই `.github/workflows/build.yml` অটো ট্রিগার হবে এবং ক্লাউডে ফ্রেশ আর্টফ্যাক্ট (`gemini-cli.zip`) বিল্ড করে আউটপুট তৈরি করবে।
+>   3. বিল্ড শেষে গিটহাব অ্যাকশন্স আর্টফ্যাক্ট বা রিলিজ থেকে রেডি বাইনারি ডাউনলোড করে সার্ভারে (`app_backend/downloads/external/gemini-cli.zip`) স্থাপন করা হবে।
+
+
