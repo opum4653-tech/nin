@@ -5,9 +5,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libevdev
 
 LOCAL_SRC_FILES := \
-    source/libevdev/libevdev.c \
-    source/libevdev/libevdev-names.c \
-    source/libevdev/libevdev-uinput.c
+    source/libevdev/libevdev.c
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/include \

@@ -1787,11 +1787,12 @@ libevdev_event_value_get_name(unsigned int type,
 	   a generic lookup */
 	if (type != EV_ABS || code != ABS_MT_TOOL_TYPE)
 		return NULL;
-
-	if (value < 0 || value > MT_TOOL_MAX)
-		return NULL;
-
-	return mt_tool_map[value];
+	switch (value) {
+		case 0: return "MT_TOOL_FINGER";
+		case 1: return "MT_TOOL_PEN";
+		case 2: return "MT_TOOL_PALM";
+		default: return NULL;
+	}
 }
 
 LIBEVDEV_EXPORT const char*
