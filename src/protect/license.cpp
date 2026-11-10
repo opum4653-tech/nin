@@ -18,7 +18,6 @@
 #define LIC_LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LIC_LOG_TAG, __VA_ARGS__)
 #define LIC_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LIC_LOG_TAG, __VA_ARGS__)
 
-// TELEGRAM_URL = "https://t.me/ninmods" (length 20)
 static constexpr unsigned char K_TELEGRAM_URL_BYTES[20] = {
     0x0A, 0x16, 0x16, 0x12, 0x11, 0x58, 0x4D, 0x4D, 0x16, 0x4C,
     0x0F, 0x07, 0x4D, 0x0C, 0x0B, 0x0C, 0x0F, 0x0D, 0x06, 0x11
@@ -45,7 +44,6 @@ static std::string normalize(const std::string& input) {
     return out;
 }
 
-// INTERNAL STATE
 static std::mutex s_lic_mutex;
 static std::string s_stored_key = "";
 static time_t s_last_seen_ts = 0;
@@ -59,7 +57,6 @@ static float s_toast_timer = 0.0f;
 static JavaVM* s_jvm = nullptr;
 static jobject s_activity = nullptr;
 
-// PERSISTENT STORAGE
 static std::string get_storage_path() {
     if (s_jvm && s_activity) {
         JNIEnv* env = nullptr;
@@ -118,7 +115,6 @@ static std::string get_storage_path() {
         }
     }
 
-    // Zero fallback to /data/adb, /dev, TMPDIR, HOME, /data/local/tmp or any external root path
     return "";
 }
 
@@ -128,7 +124,6 @@ static void save_state_to_disk() {
     FILE* fp = fopen(path.c_str(), "w");
     if (!fp) return;
 
-    // Content format: "v2\n<key>\n<last_seen_ts>\n<online_expiry_ts>\n"
     fprintf(fp, "v2\n%s\n%lld\n%lld\n",
         s_stored_key.c_str(),
         static_cast<long long>(s_last_seen_ts),
@@ -148,21 +143,18 @@ static void evaluate_state(time_t now) {
         return;
     }
 
-    // 1. Cloud-Verified Online License State (Commercial Subscription Authority)
     if (s_online_verified) {
         if (s_online_expiry_ts > 0 && now >= s_online_expiry_ts) {
-            s_is_valid = false; // License expired!
+            s_is_valid = false;
             return;
         }
         s_is_valid = true;
         return;
     }
 
-    // Require authentic online verified subscription session
     s_is_valid = false;
 }
 
-// PUBLIC API IMPLEMENTATION
 namespace lic {
 
     time_t start_date() {
@@ -214,7 +206,6 @@ namespace lic {
 
         time_t now = time(nullptr);
 
-        // Clock rollback guard: 1 day tolerance
         if (s_last_seen_ts > 0 && now < (s_last_seen_ts - 86400)) {
             s_clock_tampered = true;
             s_is_valid = false;
@@ -243,13 +234,11 @@ namespace lic {
     }
 
     static std::string get_device_hwid() {
-        // 1. Environment variable passed directly from DriverLoader / root shell
         const char* env_hwid = getenv("NIN_DEVICE_HWID");
         if (env_hwid && strlen(env_hwid) > 0) {
             return std::string(env_hwid);
         }
 
-        // 2. Persistent file written by DriverLoader app inside its own package files folder
         const char* hwid_candidates[] = {
             "/data/data/com.andorid.ninmods/files/.nin_hwid",
             "/data/user/0/com.andorid.ninmods/files/.nin_hwid",
@@ -270,7 +259,6 @@ namespace lic {
             }
         }
 
-        // 3. System properties fallback
         char buf[128] = {0};
         FILE* fp = popen("getprop ro.serialno 2>/dev/null", "r");
         if (fp) {
@@ -310,7 +298,6 @@ namespace lic {
         char response[2048] = {0};
         bool executed = false;
 
-        // 1. Primary: Official Embedded libcurl HTTP/HTTPS Client
         CURL* curl = curl_easy_init();
         if (curl) {
             std::string curl_resp;
@@ -341,7 +328,6 @@ namespace lic {
             }
         }
 
-        // 2. Secondary: Fallback process pool if direct socket blocked in sandbox
         if (!executed) {
             const char* clients[] = {
                 "curl -k -s -m 12",
@@ -381,7 +367,6 @@ namespace lic {
             return false;
         }
 
-        // Check if server returned authentic active license
         if (strstr(response, "\"success\":true") || 
             strstr(response, "\"valid\":true") ||
             strstr(response, "\"status\":\"active\"") || 
@@ -405,7 +390,6 @@ namespace lic {
             return true;
         }
 
-        // Print server's descriptive rejection reason (e.g. expired, invalid, device limit)
         const char* errPtr = strstr(response, "\"error\":\"");
         if (errPtr) {
             char errMsg[256] = {0};
@@ -421,7 +405,6 @@ namespace lic {
         std::lock_guard<std::mutex> lock(s_lic_mutex);
         if (key.empty()) return false;
 
-        // 1. Primary: Real-Time Cloud Server License Verification
         if (verify_license_online(key)) {
             return true;
         }
@@ -444,7 +427,6 @@ namespace lic {
     static void open_url_jni(const char* url) {
         if (!url || !*url) return;
 
-        // Try JNI Android Intent first if JavaVM is available
         if (s_jvm && s_activity) {
             JNIEnv* env = nullptr;
             jint res = s_jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
@@ -471,7 +453,7 @@ namespace lic {
                                             if (intentObj) {
                                                 jmethodID addFlagsMethod = env->GetMethodID(intentClass, "addFlags", "(I)Landroid/content/Intent;");
                                                 if (addFlagsMethod) {
-                                                    env->CallObjectMethod(intentObj, addFlagsMethod, 0x10000000); // FLAG_ACTIVITY_NEW_TASK
+                                                    env->CallObjectMethod(intentObj, addFlagsMethod, 0x10000000);
                                                 }
                                                 jclass activityClass = env->GetObjectClass(s_activity);
                                                 if (activityClass) {
@@ -500,7 +482,6 @@ namespace lic {
             }
         }
 
-        // Fallback: Launch intent via Android shell command
         char cmd[256];
         snprintf(cmd, sizeof(cmd), "am start -a android.intent.action.VIEW -d '%s' >/dev/null 2>&1", url);
         system(cmd);
@@ -531,4 +512,4 @@ namespace lic {
         }
     }
 
-} // namespace lic
+}
