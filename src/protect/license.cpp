@@ -8,6 +8,8 @@
 #include <mutex>
 #include <string>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <jni.h>
 #include <android/log.h>
 #include <curl/curl.h>
