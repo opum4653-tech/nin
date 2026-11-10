@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <cmath>
 #include <algorithm>
+#include <mutex>
 #include <linux/input.h>
 #include <linux/uinput.h>
 
@@ -81,11 +82,14 @@ static void genRandomString(char *string, int length) {
     string[length - 1] = '\0';
 }
 
+static std::mutex s_uploadMutex;
+
 static void Upload() {
-    static bool bTouch = false;
+    if (Touch_readOnly || nowfd <= 0) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(s_uploadMutex);
     static bool isFirstDown = true;
-    while (bTouch);
-    bTouch = true;
     int tmpCnt = 0, tmpCnt2 = 0, i, j;
     for (i = 0; i < fdNum; i++) {
         for (j = 0; j < maxF; j++) {
@@ -151,14 +155,14 @@ static void Upload() {
     input.event[tmpCnt].value = 0;
     tmpCnt++;
 
-    if (is && isFirstDown) {
-        isFirstDown = false;
-        write(nowfd, &input, sizeof(struct input_event) * (tmpCnt + 2));
-    } else {
-        write(nowfd, input.event, sizeof(struct input_event) * tmpCnt);
+    if (nowfd > 0) {
+        if (is && isFirstDown) {
+            isFirstDown = false;
+            write(nowfd, &input, sizeof(struct input_event) * (tmpCnt + 2));
+        } else {
+            write(nowfd, input.event, sizeof(struct input_event) * tmpCnt);
+        }
     }
-
-    bTouch = false;
 }
 
 static void *TypeA(void *arg) {
@@ -257,7 +261,7 @@ static void *TypeA(void *arg) {
                 } else {
                     io.MouseDown[0] = false;
                 }
-                if (!Touch_readOnly) {
+                if (!Touch_readOnly && nowfd > 0) {
                     Upload();
                 }
                 continue;

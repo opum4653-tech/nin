@@ -185,7 +185,7 @@ bool ImGui_init() {
     io.IniFilename = NULL;
     static ImFontConfig font_cfg;
     font_cfg.SizePixels = 22.0f;
-    io.Fonts->AddFontFromMemoryTTF((void *) Roboto_Regular, 32, 32.0f, &font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+    io.Fonts->AddFontFromMemoryTTF((void *) Roboto_Regular, sizeof(Roboto_Regular), 32.0f, &font_cfg, io.Fonts->GetGlyphRangesChineseFull());
     io.Fonts->AddFontDefault(&font_cfg);
     ImGui::GetStyle().ScaleAllSizes(3.0f);
     ::g_Initialized = true;
