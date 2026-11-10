@@ -3,28 +3,28 @@
 #include <string>
 #include <ctime>
 
-// CLIENT-SIDE LICENSE KEY SYSTEM & DATE-WINDOW ENFORCEMENT
+// CLIENT-SIDE LICENSE KEY SYSTEM (CLOUD-AUTHENTICATED)
 namespace lic {
 
-    // Returns true only if start_date <= now < expiry_date AND key matches
+    // Returns true only if license is authenticated online and active
     bool is_valid();
 
-    // Idempotent initialization: loads persistent state from storage & evaluates
+    // Idempotent initialization: loads persistent state from loader package storage & evaluates
     void init();
 
     // Returns the current stored key (empty if none)
     std::string current_key();
 
-    // Applies a new key with NINMODS-after-expiry redirect rule
+    // Applies and verifies a new key against the online server
     bool set_key(const std::string& key);
 
-    // Returns start date timestamp (1793750400 = 2026-11-04 00:00:00 UTC)
+    // Returns start date timestamp (0 if dynamic)
     time_t start_date();
 
-    // Returns expiry date timestamp (1794009600 = 2026-11-07 00:00:00 UTC)
+    // Returns expiry date timestamp from online subscription session (0 if unbounded)
     time_t expiry_date();
 
-    // Returns readable status: "VALID" | "EXPIRED" | "INVALID" | "COMING SOON" | "NO KEY"
+    // Returns readable status: "VALID" | "EXPIRED" | "INVALID" | "NO KEY"
     const char* status_text();
 
     // Opens https://t.me/ninmods via Android Intent (JNI or system fallback)

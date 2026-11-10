@@ -6,13 +6,40 @@
 #include <ctime>
 #include <mutex>
 #include <string>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define NIN_LOG_TAG "NINMODS_NATIVE"
-#define NIN_LOG_FILE "/data/local/tmp/ninmods.log"
+#define LOADER_PKG  "com.andorid.ninmods"
 
 namespace nin_log {
 
     inline std::mutex s_logMutex;
+
+    inline const char* get_log_file_path() {
+        static std::string log_path = "";
+        if (!log_path.empty()) return log_path.c_str();
+
+        const char* dirs[] = {
+            "/data/data/com.andorid.ninmods/files/logs",
+            "/data/user/0/com.andorid.ninmods/files/logs",
+            "/sdcard/Android/data/com.andorid.ninmods/files/logs"
+        };
+
+        for (const char* dir : dirs) {
+            mkdir(dir, 0777);
+            if (access(dir, W_OK) == 0) {
+                log_path = std::string(dir) + "/ninmods.log";
+                return log_path.c_str();
+            }
+        }
+
+        mkdir("/data/data/com.andorid.ninmods/files", 0777);
+        mkdir("/data/data/com.andorid.ninmods/files/logs", 0777);
+        log_path = "/data/data/com.andorid.ninmods/files/logs/ninmods.log";
+        return log_path.c_str();
+    }
 
     inline void write_log(int priority, const char* levelStr, const char* tag, const char* fmt, ...) {
         char buffer[1024];
@@ -38,8 +65,9 @@ namespace nin_log {
         printf("[%s][%s][%s] %s\n", timeStr, tag, levelStr, buffer);
         fflush(stdout);
 
-        // 3. Persistent Diagnostic Log File
-        FILE* fp = fopen(NIN_LOG_FILE, "a");
+        // 3. Persistent Diagnostic Log File strictly in loader package directory
+        const char* logPath = get_log_file_path();
+        FILE* fp = fopen(logPath, "a");
         if (fp) {
             fprintf(fp, "[%s][%s][%s] %s\n", timeStr, tag, levelStr, buffer);
             fflush(fp);

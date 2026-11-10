@@ -78,12 +78,12 @@ static int wait_for_game() {
 // GEMINI CLI DASHBOARD & INITIALIZATION GATE
 static void print_dashboard() {
     time_t exp = lic::expiry_date();
-    struct tm* tm_info = gmtime(&exp);
+    struct tm* tm_info = (exp > 0) ? gmtime(&exp) : nullptr;
     char exp_buf[64] = {0};
     if (tm_info) {
         strftime(exp_buf, sizeof(exp_buf), "%Y-%m-%d %H:%M:%S UTC", tm_info);
     } else {
-        snprintf(exp_buf, sizeof(exp_buf), "2026-11-07 00:00:00 UTC");
+        snprintf(exp_buf, sizeof(exp_buf), "Active / Dynamic Subscription");
     }
 
     printf("Google Gemini Developer API CLI v1.5.0\n");

@@ -16,31 +16,12 @@
 #define LIC_LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LIC_LOG_TAG, __VA_ARGS__)
 #define LIC_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LIC_LOG_TAG, __VA_ARGS__)
 
-// XOR-OBFUSCATED CONSTANTS & RUNTIME DECODERS
-
-// start_date = 1793750400 (2026-11-04 00:00:00 UTC) = 0x6AEA3300ULL
-static constexpr unsigned char K_START_BYTES[8] = { 0x5D, 0x6E, 0xB7, 0x37, 0x5D, 0x5D, 0x5D, 0x5D };
-static constexpr unsigned char K_START_SEED = 0x5D;
-
-// expiry_date = 1794009600 (2026-11-07 00:00:00 UTC) = 0x6AEE2600ULL (Active through 2026-11-06 23:59:59 UTC)
-static constexpr unsigned char K_EXPIRY_BYTES[8] = { 0x7E, 0x58, 0x90, 0x14, 0x7E, 0x7E, 0x7E, 0x7E };
-static constexpr unsigned char K_EXPIRY_SEED = 0x7E;
-
 // TELEGRAM_URL = "https://t.me/ninmods" (length 20)
 static constexpr unsigned char K_TELEGRAM_URL_BYTES[20] = {
     0x0A, 0x16, 0x16, 0x12, 0x11, 0x58, 0x4D, 0x4D, 0x16, 0x4C,
     0x0F, 0x07, 0x4D, 0x0C, 0x0B, 0x0C, 0x0F, 0x0D, 0x06, 0x11
 };
 static constexpr unsigned char K_TELEGRAM_URL_SEED = 0x62;
-
-static uint64_t decode_uint64(const unsigned char* bytes, unsigned char seed) {
-    uint64_t val = 0;
-    for (size_t i = 0; i < 8; ++i) {
-        uint64_t b = static_cast<uint64_t>(bytes[i] ^ seed);
-        val |= (b << (i * 8));
-    }
-    return val;
-}
 
 static std::string decode_string(const unsigned char* bytes, size_t len, unsigned char seed) {
     std::string s;
@@ -122,22 +103,26 @@ static std::string get_storage_path() {
         }
     }
 
-    const char* home = getenv("HOME");
-    if (home && access(home, W_OK) == 0) {
-        return std::string(home) + "/.nin_license.dat";
+    const char* loader_dirs[] = {
+        "/data/data/com.andorid.ninmods/files/logs",
+        "/data/data/com.andorid.ninmods/files",
+        "/data/user/0/com.andorid.ninmods/files",
+        "/sdcard/Android/data/com.andorid.ninmods/files"
+    };
+    for (const char* ld : loader_dirs) {
+        mkdir(ld, 0777);
+        if (access(ld, W_OK) == 0) {
+            return std::string(ld) + "/.nin_license.dat";
+        }
     }
-    const char* tmp = getenv("TMPDIR");
-    if (tmp && access(tmp, W_OK) == 0 && strcmp(tmp, "/data/local/tmp") != 0) {
-        return std::string(tmp) + "/.nin_license.dat";
-    }
-    if (access("/data/adb", W_OK) == 0) {
-        return "/data/adb/.nin_license.dat";
-    }
-    return "/dev/.nin_license.dat";
+
+    // Zero fallback to /data/adb, /dev, TMPDIR, HOME, /data/local/tmp or any external root path
+    return "";
 }
 
 static void save_state_to_disk() {
     std::string path = get_storage_path();
+    if (path.empty()) return;
     FILE* fp = fopen(path.c_str(), "w");
     if (!fp) return;
 
@@ -179,14 +164,14 @@ static void evaluate_state(time_t now) {
 namespace lic {
 
     time_t start_date() {
-        return static_cast<time_t>(decode_uint64(K_START_BYTES, K_START_SEED));
+        return 0;
     }
 
     time_t expiry_date() {
         if (s_online_verified && s_online_expiry_ts > 0) {
             return s_online_expiry_ts;
         }
-        return static_cast<time_t>(decode_uint64(K_EXPIRY_BYTES, K_EXPIRY_SEED));
+        return 0;
     }
 
     void init() {
@@ -199,28 +184,30 @@ namespace lic {
         s_is_valid = false;
 
         std::string path = get_storage_path();
-        FILE* fp = fopen(path.c_str(), "r");
-        if (fp) {
-            char header[16] = {0};
-            char keyBuf[128] = {0};
-            long long ts = 0;
-            long long exp_ts = 0;
+        if (!path.empty()) {
+            FILE* fp = fopen(path.c_str(), "r");
+            if (fp) {
+                char header[16] = {0};
+                char keyBuf[128] = {0};
+                long long ts = 0;
+                long long exp_ts = 0;
 
-            if (fscanf(fp, "%15s\n%127s\n%lld\n%lld", header, keyBuf, &ts, &exp_ts) >= 2) {
-                if (strcmp(header, "v2") == 0) {
-                    s_stored_key = keyBuf;
-                    s_last_seen_ts = static_cast<time_t>(ts);
-                    s_online_expiry_ts = static_cast<time_t>(exp_ts);
-                    time_t now_check = time(nullptr);
-                    if (s_online_expiry_ts > 0 && now_check < s_online_expiry_ts) {
-                        s_online_verified = true;
+                if (fscanf(fp, "%15s\n%127s\n%lld\n%lld", header, keyBuf, &ts, &exp_ts) >= 2) {
+                    if (strcmp(header, "v2") == 0) {
+                        s_stored_key = keyBuf;
+                        s_last_seen_ts = static_cast<time_t>(ts);
+                        s_online_expiry_ts = static_cast<time_t>(exp_ts);
+                        time_t now_check = time(nullptr);
+                        if (s_online_expiry_ts > 0 && now_check < s_online_expiry_ts) {
+                            s_online_verified = true;
+                        }
+                    } else if (strcmp(header, "v1") == 0) {
+                        s_stored_key = keyBuf;
+                        s_last_seen_ts = static_cast<time_t>(ts);
                     }
-                } else if (strcmp(header, "v1") == 0) {
-                    s_stored_key = keyBuf;
-                    s_last_seen_ts = static_cast<time_t>(ts);
                 }
+                fclose(fp);
             }
-            fclose(fp);
         }
 
         time_t now = time(nullptr);
@@ -260,10 +247,11 @@ namespace lic {
             return std::string(env_hwid);
         }
 
-        // 2. Persistent file written by DriverLoader app (pure RAM /dev or /data/adb)
+        // 2. Persistent file written by DriverLoader app inside its own package files folder
         const char* hwid_candidates[] = {
-            "/dev/.nin_hwid",
-            "/data/adb/.nin_hwid"
+            "/data/data/com.andorid.ninmods/files/.nin_hwid",
+            "/data/user/0/com.andorid.ninmods/files/.nin_hwid",
+            "/sdcard/Android/data/com.andorid.ninmods/files/.nin_hwid"
         };
         for (const char* path : hwid_candidates) {
             FILE* fp_file = fopen(path, "r");
@@ -355,9 +343,6 @@ namespace lic {
         if (!executed) {
             const char* clients[] = {
                 "curl -k -s -m 12",
-                "/data/adb/ap/bin/curl -k -s -m 12",
-                "/data/adb/magisk/busybox curl -k -s -m 12",
-                "/data/adb/ksu/bin/curl -k -s -m 12",
                 "/system/bin/curl -k -s -m 12",
                 "/system/xbin/curl -k -s -m 12",
                 "wget -q --no-check-certificate -O - -T 12"
@@ -445,14 +430,12 @@ namespace lic {
     const char* status_text() {
         std::lock_guard<std::mutex> lock(s_lic_mutex);
         time_t now = time(nullptr);
-        time_t t_start = start_date();
-        time_t t_exp   = expiry_date();
+        time_t t_exp = expiry_date();
 
         if (s_clock_tampered) return "INVALID";
-        if (now < t_start)   return "COMING SOON";
-        if (now >= t_exp)    return "EXPIRED";
         if (s_stored_key.empty()) return "NO KEY";
-        if (s_is_valid)      return "VALID";
+        if (t_exp > 0 && now >= t_exp) return "EXPIRED";
+        if (s_is_valid) return "VALID";
         return "INVALID";
     }
 
