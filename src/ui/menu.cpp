@@ -615,7 +615,8 @@ namespace ui::menu {
                     ImGui::Dummy(ImVec2(0, 4));
 
                     ImGui::Checkbox("Enable Aim Assist", &cfg::aim::enable);
-                    ImGui::Checkbox("Scope Headshot (Instant Head)", &cfg::aim::scope_aim);
+                    ImGui::Checkbox("Scope Aim (Instant Head)", &cfg::aim::scope_aim);
+                    ImGui::Checkbox("Sniper Headshot Lock (AWM/Kar/M82B)", &cfg::aim::sniper_aim);
 
                     ImGui::Dummy(ImVec2(0, 4));
                     const char* triggerModes[] = { "When Firing", "Always In FOV" };
@@ -667,7 +668,7 @@ namespace ui::menu {
 
                     ImGui::Dummy(ImVec2(0, 4));
                     ImGui::SetNextItemWidth(-1);
-                    ImGui::SliderFloat("##FovRadius", &cfg::aim::fov_radius, 40.0f, 450.0f, "%.0f px");
+                    ImGui::SliderFloat("##FovRadius", &cfg::aim::fov_radius, 30.0f, 650.0f, "%.0f px");
                     ImGui::TextDisabled("Aim FOV Circle Radius");
 
                     ImGui::Dummy(ImVec2(0, 4));

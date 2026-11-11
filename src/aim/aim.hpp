@@ -88,16 +88,23 @@ namespace aimbot {
             return;
         }
 
-// FIRING & SCOPING STATE
+        // FIRING & SCOPING STATE
         bool isFiring = rpm<bool>(localPlayer + Offsets::Player::IsFiring);
-        float fovOffset = rpm<float>(localPlayer + Offsets::Player::FOVOffset);
-        bool isScoping = (fovOffset < -0.01f || fovOffset > 0.01f);
+
+        // FollowCamera is at localPlayer + 0x690. Inside FollowCamera, FOVOffset is at 0x84!
+        // When scoping (especially sniper rifles like AWM, Kar98, M82B), FOVOffset shifts negative.
+        uint64_t followCam = rpm<uint64_t>(localPlayer + Offsets::Player::Camera);
+        float camFovOffset = 0.0f;
+        if (is_valid_ptr(followCam)) {
+            camFovOffset = rpm<float>(followCam + Offsets::Player::FOVOffset);
+        }
+        bool isScoping = (camFovOffset < -0.5f || camFovOffset > 0.5f);
 
         bool triggerActive = false;
         if (cfg::aim::trigger_mode == 1) {
             triggerActive = true; // Always In FOV
-        } else if (cfg::aim::scope_aim && isScoping) {
-            triggerActive = true; // Instant activation when scoping with sniper/long guns
+        } else if ((cfg::aim::scope_aim || cfg::aim::sniper_aim) && isScoping) {
+            triggerActive = true; // Instant activation when scoping (Sniper rifles & Scoped guns)
         } else {
             triggerActive = isFiring;
         }
@@ -136,18 +143,25 @@ namespace aimbot {
         const PlayerData* bestEnemy = nullptr;
         Vector3 bestScreenPos = Vector3::Zero();
 
-        // 1. STRICT TARGET HYSTERESIS (STICK TO CURRENT TARGET)
-        // If Target 1 is locked, NEVER switch to Target 2 as long as Target 1 is in view!
-        // This completely eliminates crosshair flickering and screen shaking!
+        // 1. STRICT TARGET HYSTERESIS (STICK TO CURRENT TARGET INSIDE FOV CIRCLE)
+        // If Target is locked, NEVER switch to another enemy as long as Target remains in FOV circle!
         if (s_lockedTargetAddr != 0) {
             for (const auto& enemy : enemies) {
                 if (enemy.addr == s_lockedTargetAddr) {
-                    if (enemy.curHP > 0 && enemy.Head.z >= 0.5f) {
-                        float dx = enemy.Head.x - screenCx;
-                        float dy = enemy.Head.y - screenCy;
-                        float dist = sqrtf(dx * dx + dy * dy);
-                        // Generous hysteresis boundary (1.5x FOV): never detach on micro-movements
-                        if (dist <= fovLimit * 1.5f) {
+                    if (enemy.curHP > 0 && enemy.Head.z >= 0.05f) {
+                        float dxHead = enemy.Head.x - screenCx;
+                        float dyHead = enemy.Head.y - screenCy;
+                        float distHead = sqrtf(dxHead * dxHead + dyHead * dyHead);
+
+                        float bodyX = (enemy.Head.x + enemy.Toe.x) * 0.5f;
+                        float bodyY = (enemy.Head.y + enemy.Toe.y) * 0.5f;
+                        float dxBody = bodyX - screenCx;
+                        float dyBody = bodyY - screenCy;
+                        float distBody = sqrtf(dxBody * dxBody + dyBody * dyBody);
+
+                        float dist = std::min(distHead, distBody);
+                        // Hysteresis boundary (1.35x FOV): never detach on micro-movements
+                        if (dist <= fovLimit * 1.35f) {
                             bestEnemy = &enemy;
                             bestScreenPos = enemy.Head;
                         }
@@ -156,7 +170,7 @@ namespace aimbot {
                 }
             }
 
-            // If locked enemy died or left FOV, clear lock to allow new target acquisition
+            // If locked enemy died or left FOV circle, clear lock to allow new target acquisition
             if (!bestEnemy) {
                 s_lockedTargetAddr = 0;
                 s_burstTicks = 0;
@@ -164,20 +178,28 @@ namespace aimbot {
             }
         }
 
-        // 2. NEW TARGET ACQUISITION (ONLY WHEN NO TARGET IS LOCKED)
-        // Find single closest enemy inside FOV circle
+        // 2. NEW TARGET ACQUISITION (BASED ON SCREEN CENTER FOV CIRCLE)
+        // Find closest enemy whose head or body enters the FOV circle (matching refer/internal logic)
         if (!bestEnemy) {
             float bestScore = 9999999.0f;
             for (const auto& enemy : enemies) {
-                if (enemy.Head.z < 0.5f || enemy.curHP <= 0) continue;
+                if (enemy.Head.z < 0.05f || enemy.curHP <= 0) continue;
                 if (cfg::aim::ignore_bots && enemy.isBot) continue;
                 if (cfg::aim::visible_check && !enemy.isVisible) continue;
                 if (enemy.distance > cfg::aim::max_distance) continue;
 
-                Vector3 aimPos = enemy.Head;
-                float dx = aimPos.x - screenCx;
-                float dy = aimPos.y - screenCy;
-                float crosshairDist = sqrtf(dx * dx + dy * dy);
+                // Test both Head and Body center against screen FOV circle
+                float dxHead = enemy.Head.x - screenCx;
+                float dyHead = enemy.Head.y - screenCy;
+                float distHead = sqrtf(dxHead * dxHead + dyHead * dyHead);
+
+                float bodyX = (enemy.Head.x + enemy.Toe.x) * 0.5f;
+                float bodyY = (enemy.Head.y + enemy.Toe.y) * 0.5f;
+                float dxBody = bodyX - screenCx;
+                float dyBody = bodyY - screenCy;
+                float distBody = sqrtf(dxBody * dxBody + dyBody * dyBody);
+
+                float crosshairDist = std::min(distHead, distBody);
 
                 // STRICT FOV CIRCLE: Only lock if inside circle
                 if (crosshairDist > fovLimit) continue;
@@ -192,7 +214,7 @@ namespace aimbot {
                 if (score < bestScore) {
                     bestScore = score;
                     bestEnemy = &enemy;
-                    bestScreenPos = aimPos;
+                    bestScreenPos = enemy.Head;
                 }
             }
 
@@ -221,7 +243,29 @@ namespace aimbot {
         g_currentTarget.screenPos = bestScreenPos;
         g_currentTarget.headWorld = bestEnemy->headWorld;
 
-        // 3D BULLET ALIGNMENT WITH PROGRESSIVE DRAG & SMOOTH INTERPOLATION
+        // 3. HEADSHOT PERCENTAGE RATE ENGINE
+        // Dynamically rolls headshot vs chest hit based on cfg::aim::headshot_rate (0% - 100%)
+        static uint64_t s_lastRollTarget = 0;
+        static int s_burstRollCount = 0;
+        static bool s_rollIsHeadshot = true;
+
+        if (s_lockedTargetAddr != s_lastRollTarget || (++s_burstRollCount % 6 == 0)) {
+            s_lastRollTarget = s_lockedTargetAddr;
+            int rate = static_cast<int>(cfg::aim::headshot_rate);
+            if (rate >= 100) {
+                s_rollIsHeadshot = true;
+            } else if (rate <= 0) {
+                s_rollIsHeadshot = false;
+            } else {
+                s_rollIsHeadshot = ((rand() % 100) < rate);
+            }
+        }
+
+        // Sniper rifle auto-lock: when sniper_aim is active and player is scoping, ensure 100% skull connection
+        bool isSniperShot = (cfg::aim::sniper_aim && isScoping);
+        bool lockToHead = (isSniperShot || s_rollIsHeadshot);
+
+        // 4. 3D BULLET ALIGNMENT & COLLIDER OVERRIDE
         uint64_t aimInfo = rpm<uint64_t>(localPlayer + Offsets::Player::AimInfo);
         if (is_valid_ptr(aimInfo)) {
             uint64_t dirAddr = aimInfo + Offsets::Aim::Direction;
@@ -230,11 +274,17 @@ namespace aimbot {
             Vector3 target3D = bestEnemy->headWorld;
             if (target3D != Vector3::Zero()) {
                 if (cfg::aim::target_bone == 1) {
-                    target3D.y += 0.00f; // Neck
+                    target3D.y += 0.00f; // Neck / Upper Chest
                 } else if (cfg::aim::target_bone == 2) {
-                    target3D.y -= 0.35f; // Body
+                    target3D.y -= 0.35f; // Body / Pelvis
                 } else {
-                    target3D.y += 0.12f; // Head: direct lift into skull center
+                    if (lockToHead) {
+                        // Skull elevation: slightly higher compensation (+0.15m) for sniper projectile drop
+                        target3D.y += isSniperShot ? 0.15f : 0.12f;
+                    } else {
+                        // Chest / torso impact when headshot roll fails
+                        target3D.y -= 0.22f;
+                    }
                 }
 
                 if (std::isfinite(bulletOrigin.x) &&
@@ -242,18 +292,20 @@ namespace aimbot {
                     std::isfinite(bulletOrigin.z) &&
                     bulletOrigin.sqrMagnitude() > 1e-6f) {
                     Vector3 diff = target3D - bulletOrigin;
-                    Vector3 headshotDir = SafeNormalize(diff);
-                    if (std::isfinite(headshotDir.x) && std::isfinite(headshotDir.y) && std::isfinite(headshotDir.z)) {
-                        // 100% direct snap: zero smoothing lag so EVERY single bullet locks directly onto the skull
-                        wpm<Vector3>(dirAddr, headshotDir);
+                    Vector3 shotDir = SafeNormalize(diff);
+                    if (std::isfinite(shotDir.x) && std::isfinite(shotDir.y) && std::isfinite(shotDir.z)) {
+                        // Direct snap: zero smoothing lag so bullets lock onto the target direction
+                        wpm<Vector3>(dirAddr, shotDir);
                         wpm<bool>(aimInfo + 0x71, false);
 
-                        uint64_t headCollider = rpm<uint64_t>(bestEnemy->addr + Offsets::Player::HeadCollider);
-                        if (is_valid_ptr(headCollider)) {
-                            wpm<uint64_t>(bestEnemy->addr + Offsets::Player::ColWrite, headCollider);
+                        if (lockToHead) {
+                            uint64_t headCollider = rpm<uint64_t>(bestEnemy->addr + Offsets::Player::HeadCollider);
+                            if (is_valid_ptr(headCollider)) {
+                                wpm<uint64_t>(bestEnemy->addr + Offsets::Player::ColWrite, headCollider);
+                            }
                         }
 
-                        // Lock weapon recoil to zero so multi-bullet spray stays 100% on the head
+                        // Lock weapon recoil to zero so multi-bullet spray stays on target
                         uint64_t weapon = rpm<uint64_t>(localPlayer + Offsets::Player::Weapon);
                         if (is_valid_ptr(weapon)) {
                             uint64_t wdata = rpm<uint64_t>(weapon + Offsets::Weapon::Data);

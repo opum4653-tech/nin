@@ -42,7 +42,8 @@ namespace combat {
 
 namespace aim {
     inline bool  enable           = false;
-    inline bool  scope_aim        = false; // Scoping Headshot: Locks directly to head when scoping
+    inline bool  scope_aim        = true;  // Scoping Headshot: Locks directly to head when scoping
+    inline bool  sniper_aim       = true;  // Sniper Headshot Mode: Auto-locks skull on scope/hold-fire
     inline bool  show_fov         = false;
     inline float fov_radius       = 180.0f;
     inline float smooth           = 6.0f;
