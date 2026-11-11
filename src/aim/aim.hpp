@@ -234,7 +234,7 @@ namespace aimbot {
                 } else if (cfg::aim::target_bone == 2) {
                     target3D.y -= 0.35f; // Body
                 } else {
-                    target3D.y += 0.08f; // Head: direct lift into skull center
+                    target3D.y += 0.12f; // Head: direct lift into skull center
                 }
 
                 if (std::isfinite(bulletOrigin.x) &&
@@ -244,21 +244,22 @@ namespace aimbot {
                     Vector3 diff = target3D - bulletOrigin;
                     Vector3 headshotDir = SafeNormalize(diff);
                     if (std::isfinite(headshotDir.x) && std::isfinite(headshotDir.y) && std::isfinite(headshotDir.z)) {
-                        // High-responsiveness direction blending (85% instant convergence per tick)
-                        Vector3 finalDir = headshotDir;
-                        if (s_prevDir != Vector3::Zero()) {
-                            finalDir.x = s_prevDir.x + (headshotDir.x - s_prevDir.x) * 0.85f;
-                            finalDir.y = s_prevDir.y + (headshotDir.y - s_prevDir.y) * 0.85f;
-                            finalDir.z = s_prevDir.z + (headshotDir.z - s_prevDir.z) * 0.85f;
-                            finalDir = SafeNormalize(finalDir);
-                        }
-                        s_prevDir = finalDir;
-                        wpm<Vector3>(dirAddr, finalDir);
+                        // 100% direct snap: zero smoothing lag so EVERY single bullet locks directly onto the skull
+                        wpm<Vector3>(dirAddr, headshotDir);
                         wpm<bool>(aimInfo + 0x71, false);
 
                         uint64_t headCollider = rpm<uint64_t>(bestEnemy->addr + Offsets::Player::HeadCollider);
                         if (is_valid_ptr(headCollider)) {
                             wpm<uint64_t>(bestEnemy->addr + Offsets::Player::ColWrite, headCollider);
+                        }
+
+                        // Lock weapon recoil to zero so multi-bullet spray stays 100% on the head
+                        uint64_t weapon = rpm<uint64_t>(localPlayer + Offsets::Player::Weapon);
+                        if (is_valid_ptr(weapon)) {
+                            uint64_t wdata = rpm<uint64_t>(weapon + Offsets::Weapon::Data);
+                            if (is_valid_ptr(wdata)) {
+                                wpm<float>(wdata + Offsets::Weapon::Recoil, 0.0f);
+                            }
                         }
                     }
                 }
