@@ -47,39 +47,18 @@ enum EIconType {
 };
 
 static void DrawCircularLogo(ImDrawList* dl, ImVec2 center, float radius, bool spinning = false) {
-    ImU32 colPrimary      = theme_orchid::ColPrimary;       // IM_COL32(225, 0, 152, 255)
-    ImU32 colPrimaryLight = theme_orchid::ColPrimaryLight;  // IM_COL32(255, 90, 205, 255)
-    ImU32 colDarkBg       = IM_COL32(18, 14, 26, 245);
-    ImU32 colWhite        = IM_COL32(255, 255, 255, 255);
-    ImU32 colCyan         = IM_COL32(0, 240, 255, 200);
+    (void)spinning;
+    ImU32 colPrimary = theme_orchid::ColPrimary;
+    ImU32 colDarkBg  = IM_COL32(18, 14, 26, 245);
+    ImU32 colWhite   = IM_COL32(255, 255, 255, 255);
 
-    float t = (float)ImGui::GetTime();
-    float pulse = 0.5f + 0.5f * sinf(t * 3.0f);
-
-    // 1. Smooth Anti-Aliased Outer Glow
-    dl->AddCircleFilled(center, radius + 8.0f * pulse, (colPrimary & 0x00FFFFFF) | ((int)(45 * pulse) << 24), 48);
-    dl->AddCircleFilled(center, radius + 4.0f, (colPrimary & 0x00FFFFFF) | ((int)(85 * pulse) << 24), 48);
-
-    // 2. Base Dark Glass Disc
+    // 1. Base Dark Disc
     dl->AddCircleFilled(center, radius, colDarkBg, 64);
 
-    // 3. Crisp Concentric Metallic/Neon Rings
-    dl->AddCircle(center, radius, colPrimary, 64, 2.5f);
-    dl->AddCircle(center, radius - 2.5f, (colPrimaryLight & 0x00FFFFFF) | (180 << 24), 64, 1.2f);
-    dl->AddCircle(center, radius * 0.76f, (colPrimary & 0x00FFFFFF) | (140 << 24), 48, 1.2f);
+    // 2. Clean Solid Outline Border (Simple, No 4-sided animations)
+    dl->AddCircle(center, radius, colPrimary, 64, 2.0f);
 
-    // 4. Rotating Orbital Arcs (Cyber Feel)
-    float spinSpeed = spinning ? 3.5f : 1.8f;
-    float ang = t * spinSpeed;
-    for (int i = 0; i < 4; i++) {
-        float a1 = ang + i * (3.14159265f * 0.5f);
-        float a2 = a1 + 0.45f;
-        ImVec2 pa(center.x + cosf(a1) * (radius - 4.5f), center.y + sinf(a1) * (radius - 4.5f));
-        ImVec2 pb(center.x + cosf(a2) * (radius - 4.5f), center.y + sinf(a2) * (radius - 4.5f));
-        dl->AddLine(pa, pb, (i % 2 == 0) ? colPrimaryLight : colCyan, 2.2f);
-    }
-
-    // 5. Center Stylized "N" Letter with drop shadow
+    // 3. Center "N" Letter with drop shadow
     ImFont* font = ImGui::GetFont();
     const char* txt = "N";
     float fontSize = radius * 1.15f;
