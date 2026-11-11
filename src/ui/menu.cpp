@@ -292,7 +292,9 @@ namespace ui::menu {
             const bool deactivated = ImGui::IsItemDeactivated();
 
             // 2. Drag & Tap Tracking via Absolute Finger Offset
+            static bool s_was_activated = false;
             if (ImGui::IsItemActivated()) {
+                s_was_activated = true;
                 s_touch_start_pos = mouse;
                 s_drag_offset = ImVec2(mouse.x - s_circle_pos.x, mouse.y - s_circle_pos.y);
                 s_is_dragging = false;
@@ -320,7 +322,8 @@ namespace ui::menu {
             static double s_last_toggle_time = 0.0;
             double cur_time = ImGui::GetTime();
 
-            if (clicked || (deactivated && !s_moved_drag)) {
+            // Startup safety: ignore touches during first 1.5s to prevent loader launch tap from opening menu
+            if (cur_time > 1.5 && s_was_activated && (clicked || (deactivated && !s_moved_drag))) {
                 if (cur_time - s_last_toggle_time > 0.30) {
                     menu_open = !menu_open;
                     s_last_toggle_time = cur_time;
@@ -328,9 +331,11 @@ namespace ui::menu {
                 }
                 s_moved_drag = false;
                 s_is_dragging = false;
+                s_was_activated = false;
             } else if (deactivated) {
                 s_moved_drag = false;
                 s_is_dragging = false;
+                s_was_activated = false;
             }
 
             // Draw circular emblem with spinning orbital arcs
