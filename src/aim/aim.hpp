@@ -229,35 +229,13 @@ namespace aimbot {
 
             Vector3 target3D = bestEnemy->headWorld;
             if (target3D != Vector3::Zero()) {
-                // Natural Body-to-Head Drag Curve:
-                // First 1-2 shots (ticks 1..3) aim at chest/neck (-0.26m to -0.15m)
-                // Shots 3-7 smoothly climb up to exact Head hitbox (0.00m)
-                // Shots 8+ stay locked on Head
-                float dragProgress = ImClamp(static_cast<float>(s_burstTicks) / 6.0f, 0.0f, 1.0f);
-                float smoothCurve = dragProgress * dragProgress * (3.0f - 2.0f * dragProgress);
-
-                // Base target offset depending on user menu config (Head / Neck / Body)
-                float baseOffset = 0.0f;
-                if (cfg::aim::scope_aim && isScoping) {
-                    // Scoping mode: 100% direct head lock with zero body offset
-                    baseOffset = 0.0f;
-                } else if (cfg::aim::target_bone == 1) {
-                    baseOffset = 0.15f; // Neck
+                if (cfg::aim::target_bone == 1) {
+                    target3D.y += 0.00f; // Neck
                 } else if (cfg::aim::target_bone == 2) {
-                    baseOffset = 0.45f; // Body
+                    target3D.y -= 0.35f; // Body
                 } else {
-                    // Instant Extensible Drag:
-                    // Rapid snap to head hitbox within the very first frames of dragging.
-                    // Smooth curve reaches full 100% head snap at s_burstTicks >= 2.
-                    float dragProgress = ImClamp(static_cast<float>(s_burstTicks) / 2.0f, 0.0f, 1.0f);
-                    float smoothCurve = dragProgress * dragProgress * (3.0f - 2.0f * dragProgress);
-
-                    float targetHeightOffset = (1.0f - (cfg::aim::headshot_rate * 0.01f)) * 0.36f;
-                    // Directly locks to head elevation (0.0m) as soon as dragging commences
-                    baseOffset = targetHeightOffset + ((1.0f - smoothCurve) * 0.08f);
+                    target3D.y += 0.08f; // Head: direct lift into skull center
                 }
-
-                target3D.y -= baseOffset;
 
                 if (std::isfinite(bulletOrigin.x) &&
                     std::isfinite(bulletOrigin.y) &&
@@ -276,6 +254,12 @@ namespace aimbot {
                         }
                         s_prevDir = finalDir;
                         wpm<Vector3>(dirAddr, finalDir);
+                        wpm<bool>(aimInfo + 0x71, false);
+
+                        uint64_t headCollider = rpm<uint64_t>(bestEnemy->addr + Offsets::Player::HeadCollider);
+                        if (is_valid_ptr(headCollider)) {
+                            wpm<uint64_t>(bestEnemy->addr + Offsets::Player::ColWrite, headCollider);
+                        }
                     }
                 }
             }
